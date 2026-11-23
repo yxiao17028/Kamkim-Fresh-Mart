@@ -294,6 +294,7 @@ export function createStorefrontRouter(db: DbClient): Router {
     res.cookie('kk_customer_session', token, {
       httpOnly: true,
       sameSite: 'lax',
+      secure: req.secure,
       maxAge: 72 * 3600 * 1000,
     });
     res.status(201).json({
@@ -334,6 +335,7 @@ export function createStorefrontRouter(db: DbClient): Router {
     res.cookie('kk_customer_session', token, {
       httpOnly: true,
       sameSite: 'lax',
+      secure: req.secure,
       maxAge: 72 * 3600 * 1000,
     });
     res.json({

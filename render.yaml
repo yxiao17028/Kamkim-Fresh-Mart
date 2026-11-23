@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: kamkim-fresh-mart
+    runtime: node
+    plan: free
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: PAYMENT_WEBHOOK_SECRET
+        generateValue: true
+      - key: LALAMOVE_WEBHOOK_SECRET
+        generateValue: true
+      - key: POSPAL_CALLBACK_SECRET
+        generateValue: true
+      - key: POSPAL_MODE
+        value: live
+      - key: POSPAL_API_BASE
+        value: https://platform.pospal.cn
+      - key: AUTO_PULL_POSPAL_ON_EMPTY
+        value: "true"
+      - key: POSPAL_ACCOUNT
+        sync: false
+      - key: POSPAL_APP_ID
+        sync: false
+      - key: POSPAL_APP_KEY
+        sync: false

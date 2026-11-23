@@ -14,6 +14,7 @@ export function createApp(db: DbClient, options?: { serveStatic?: boolean }): Ex
   seedDatabase(db);
 
   const app = express();
+  app.set('trust proxy', 1);
   app.use(
     cors({
       origin: true,

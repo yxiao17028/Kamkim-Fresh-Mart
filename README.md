@@ -36,3 +36,16 @@ Single-merchant online grocery storefront and operations dashboard built for **K
    npm run typecheck
    npm test
    ```
+
+## Deploying to Render
+
+This repository includes a [`render.yaml`](./render.yaml) Blueprint:
+
+1. In [Render Dashboard](https://dashboard.render.com/), click **New + → Blueprint** (or **New + → Web Service**) and connect `yxiao17028/Kamkim-Fresh-Mart`.
+2. Render automatically uses:
+   - **Build Command**: `npm install --include=dev && npm run build`
+   - **Start Command**: `npm start`
+   - **Health Check Path**: `/api/health`
+3. Enter the required secret environment variables (`POSPAL_ACCOUNT`, `POSPAL_APP_ID`, `POSPAL_APP_KEY`).
+4. Optional for persistent storage on paid Render plans: attach a Persistent Disk mounted at `/var/data` and set `DB_PATH=/var/data/kamkim.sqlite`. On the free plan, `AUTO_PULL_POSPAL_ON_EMPTY=true` automatically refreshes products from POSPAL when the container starts empty.
+

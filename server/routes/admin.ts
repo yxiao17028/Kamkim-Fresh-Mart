@@ -60,6 +60,7 @@ export function createAdminRouter(db: DbClient): Router {
     res.cookie('kk_admin_session', token, {
       httpOnly: true,
       sameSite: 'lax',
+      secure: req.secure,
       maxAge: 12 * 3600 * 1000,
     });
 
