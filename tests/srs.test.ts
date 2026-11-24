@@ -509,13 +509,22 @@ describe('KamKim Fresh Mart SRS v1.3 End-to-End Acceptance Tests', () => {
     expect(okRes.status).toBe(200);
     expect(okRes.body.applied).toBe(true);
 
-    const updated = db.get<{ name: string; base_price_sen: number; sellable_stock: number; image_url: string }>(
-      'SELECT name, base_price_sen, sellable_stock, image_url FROM products WHERE pospal_uid = ?',
+    const updated = db.get<{
+      name: string;
+      category: string;
+      base_price_sen: number;
+      sellable_stock: number;
+      is_active: number;
+      image_url: string;
+    }>(
+      'SELECT name, category, base_price_sen, sellable_stock, is_active, image_url FROM products WHERE pospal_uid = ?',
       ['PP-1002'],
     )!;
     expect(updated.name).toBe('Japanese Sweet Corn Twin Pack V3');
+    expect(updated.category).toBe('Fresh Produce');
     expect(updated.base_price_sen).toBe(690);
     expect(updated.sellable_stock).toBe(35);
+    expect(updated.is_active).toBe(1);
     expect(updated.image_url).toContain('unsplash.com');
   });
 });

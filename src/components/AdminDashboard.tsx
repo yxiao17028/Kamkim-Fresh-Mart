@@ -794,7 +794,7 @@ export const AdminDashboard: React.FC<{ admin: AdminUser; onLogout: () => void }
                       const r = await apiFetch<{ productsReconciled: number; conflictsResolved: number }>('/api/admin/pospal/reconcile', {
                         method: 'POST',
                       });
-                      showToast(`Reconciled ${r.productsReconciled} products (${r.conflictsResolved} conflicts resolved).`);
+                      showToast(`Reconciled ${r.productsReconciled} products (${r.conflictsResolved} stock diffs updated).`);
                       loadAll();
                     } catch (e) {
                       showToast(e instanceof Error ? e.message : 'Reconcile failed');
@@ -802,7 +802,7 @@ export const AdminDashboard: React.FC<{ admin: AdminUser; onLogout: () => void }
                   }}
                   className="px-3.5 py-2 rounded-xl bg-emerald-700 text-white text-xs font-semibold"
                 >
-                  Run Full Reconciliation
+                  {pospalData.connection?.mode === 'live' ? 'Sync Stock Only / Reconcile' : 'Run Full Reconciliation'}
                 </button>
               </div>
             </div>

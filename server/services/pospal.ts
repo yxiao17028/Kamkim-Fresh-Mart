@@ -1,8 +1,10 @@
+import crypto from 'node:crypto';
 import { DbClient } from '../db/database';
 import { writeAuditLog } from './audit';
 import { adminEvents } from './events';
 import {
   fetchAllPospalV3Products,
+  fetchAllPospalV3Stock,
   getPospalConfig,
   pushPospalV3ProductUpdate,
   pushPospalV3StockBatchAdjust,
@@ -676,76 +678,141 @@ export async function flushPospalOutboxLive(
   let lastError: string | undefined;
   const now = new Date().toISOString();
 
-  for (const job of jobs) {
-    const payload = JSON.parse(job.payload_json) as {
-      pospalUid: string;
-      sku: string;
-      name?: string;
-      category?: string;
-      basePriceSen?: number;
-      sourceOrderCode?: string;
-    };
-
-    if (isOutage) {
+  if (isOutage) {
+    for (const job of jobs) {
       failed += 1;
       lastError = 'POSPAL_API_UNREACHABLE: Simulated outage mode active';
       db.run(
         `UPDATE pospal_outbox SET status = 'Failed', attempts = ?, last_error = ?, next_retry_at = ?, updated_at = ? WHERE id = ?`,
         [job.attempts + 1, lastError, new Date(Date.now() + 60_000).toISOString(), now, job.id],
       );
-      continue;
     }
+    return { processed: jobs.length, confirmed, failed, lastError };
+  }
+
+  // Batch up to 100 unique barcodes per stock-batch-adjust call to save POSPAL API Tokens
+  const stockJobs = jobs.filter((j) => j.event_type === 'stock_delta');
+  const otherJobs = jobs.filter((j) => j.event_type !== 'stock_delta');
+
+  const markOrderSyncStatus = (orderCode?: string) => {
+    if (!orderCode) return;
+    const remaining = db.get<{ cnt: number }>(
+      `SELECT COUNT(*) AS cnt FROM pospal_outbox WHERE status IN ('Pending', 'Failed') AND payload_json LIKE ?`,
+      [`%${orderCode}%`],
+    );
+    db.run(`UPDATE orders SET pos_sync_status = ?, updated_at = ? WHERE order_code = ?`, [
+      (remaining?.cnt ?? 0) === 0 ? 'Confirmed' : 'Failed',
+      now,
+      orderCode,
+    ]);
+  };
+
+  // Group stock_delta jobs by SKU/barcode (POSPAL forbids duplicate barcodes in one batch request)
+  const groupedByBarcode = new Map<
+    string,
+    { productId: number; totalDelta: number; jobs: typeof stockJobs; orderCodes: Set<string> }
+  >();
+  for (const job of stockJobs) {
+    const payload = JSON.parse(job.payload_json) as { sku: string; sourceOrderCode?: string };
+    const existing = groupedByBarcode.get(payload.sku) || {
+      productId: job.product_id,
+      totalDelta: 0,
+      jobs: [],
+      orderCodes: new Set<string>(),
+    };
+    existing.totalDelta += job.delta;
+    existing.jobs.push(job);
+    if (payload.sourceOrderCode) existing.orderCodes.add(payload.sourceOrderCode);
+    groupedByBarcode.set(payload.sku, existing);
+  }
+
+  const barcodeEntries = Array.from(groupedByBarcode.entries());
+  for (let i = 0; i < barcodeEntries.length; i += 100) {
+    const chunk = barcodeEntries.slice(i, i + 100);
+    const batchItems = chunk.map(([barcode, grp]) => ({ barcode, changeStock: grp.totalDelta }));
+    const batchReqId =
+      chunk.length === 1 && chunk[0][1].jobs.length === 1
+        ? chunk[0][1].jobs[0].idempotency_key
+        : crypto
+            .createHash('sha256')
+            .update(chunk.flatMap(([, g]) => g.jobs.map((j) => j.idempotency_key)).join('|'))
+            .digest('hex');
 
     try {
-      if (job.event_type === 'stock_delta') {
-        const res = await pushPospalV3StockBatchAdjust(
-          [{ barcode: payload.sku, changeStock: job.delta }],
-          job.idempotency_key,
-          config,
-        );
-        const itemRes = res.results?.[0];
-        if (!itemRes?.success) {
-          throw new Error(itemRes?.message || 'POSPAL rejected stock adjustment');
-        }
-        if (typeof itemRes.stock === 'number') {
-          db.run('UPDATE products SET pospal_stock = ?, pospal_updated_at = ?, updated_at = ? WHERE id = ?', [
-            Math.round(itemRes.stock),
-            now,
-            now,
-            job.product_id,
-          ]);
-        }
-      } else if (job.event_type === 'product_update') {
-        await pushPospalV3ProductUpdate(
-          {
-            barcode: payload.sku,
-            name: payload.name,
-            sellPriceYuan: typeof payload.basePriceSen === 'number' ? payload.basePriceSen / 100 : undefined,
-          },
-          job.idempotency_key,
-          config,
-        );
-      }
+      const batchRes = await pushPospalV3StockBatchAdjust(batchItems, batchReqId, config);
+      const resultByBarcode = new Map((batchRes.results || []).map((r) => [r.barcode, r]));
 
+      db.transaction(() => {
+        for (const [barcode, grp] of chunk) {
+          const itemRes = resultByBarcode.get(barcode);
+          if (itemRes?.success) {
+            if (typeof itemRes.stock === 'number') {
+              db.run('UPDATE products SET pospal_stock = ?, pospal_updated_at = ?, updated_at = ? WHERE id = ?', [
+                Math.round(itemRes.stock),
+                now,
+                now,
+                grp.productId,
+              ]);
+            }
+            for (const j of grp.jobs) {
+              db.run(
+                `UPDATE pospal_outbox SET status = 'Confirmed', attempts = ?, last_error = '', updated_at = ? WHERE id = ?`,
+                [j.attempts + 1, now, j.id],
+              );
+              confirmed += 1;
+            }
+            recomputeSellableStock(db, grp.productId);
+          } else {
+            const msg = itemRes?.message || 'POSPAL rejected stock adjustment';
+            lastError = msg;
+            for (const j of grp.jobs) {
+              db.run(
+                `UPDATE pospal_outbox SET status = 'Failed', attempts = ?, last_error = ?, next_retry_at = ?, updated_at = ? WHERE id = ?`,
+                [j.attempts + 1, msg, new Date(Date.now() + 60_000).toISOString(), now, j.id],
+              );
+              failed += 1;
+            }
+          }
+          for (const oc of grp.orderCodes) markOrderSyncStatus(oc);
+        }
+      });
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : 'POSPAL V3 batch stock request failed';
+      for (const [, grp] of chunk) {
+        for (const j of grp.jobs) {
+          db.run(
+            `UPDATE pospal_outbox SET status = 'Failed', attempts = ?, last_error = ?, next_retry_at = ?, updated_at = ? WHERE id = ?`,
+            [j.attempts + 1, lastError, new Date(Date.now() + 60_000).toISOString(), now, j.id],
+          );
+          failed += 1;
+        }
+        for (const oc of grp.orderCodes) markOrderSyncStatus(oc);
+      }
+    }
+  }
+
+  for (const job of otherJobs) {
+    const payload = JSON.parse(job.payload_json) as {
+      sku: string;
+      name?: string;
+      basePriceSen?: number;
+      sourceOrderCode?: string;
+    };
+    try {
+      await pushPospalV3ProductUpdate(
+        {
+          barcode: payload.sku,
+          name: payload.name,
+          sellPriceYuan: typeof payload.basePriceSen === 'number' ? payload.basePriceSen / 100 : undefined,
+        },
+        job.idempotency_key,
+        config,
+      );
       db.run(`UPDATE pospal_outbox SET status = 'Confirmed', attempts = ?, last_error = '', updated_at = ? WHERE id = ?`, [
         job.attempts + 1,
         now,
         job.id,
       ]);
-      recomputeSellableStock(db, job.product_id);
-
-      if (payload.sourceOrderCode) {
-        const remaining = db.get<{ cnt: number }>(
-          `SELECT COUNT(*) AS cnt FROM pospal_outbox WHERE status IN ('Pending', 'Failed') AND payload_json LIKE ?`,
-          [`%${payload.sourceOrderCode}%`],
-        );
-        if ((remaining?.cnt ?? 0) === 0) {
-          db.run(`UPDATE orders SET pos_sync_status = 'Confirmed', updated_at = ? WHERE order_code = ?`, [
-            now,
-            payload.sourceOrderCode,
-          ]);
-        }
-      }
       confirmed += 1;
     } catch (err) {
       failed += 1;
@@ -754,13 +821,8 @@ export async function flushPospalOutboxLive(
         `UPDATE pospal_outbox SET status = 'Failed', attempts = ?, last_error = ?, next_retry_at = ?, updated_at = ? WHERE id = ?`,
         [job.attempts + 1, lastError, new Date(Date.now() + 60_000).toISOString(), now, job.id],
       );
-      if (payload.sourceOrderCode) {
-        db.run(`UPDATE orders SET pos_sync_status = 'Failed', updated_at = ? WHERE order_code = ?`, [
-          now,
-          payload.sourceOrderCode,
-        ]);
-      }
     }
+    markOrderSyncStatus(payload.sourceOrderCode);
   }
 
   if (failed > 0) {
@@ -774,6 +836,73 @@ export async function flushPospalOutboxLive(
   }
 
   return { processed: jobs.length, confirmed, failed, lastError };
+}
+
+/**
+ * Token-efficient reconciliation in live mode:
+ * 1) Flushes batched outbound stock adjustments,
+ * 2) Pulls lightweight `/openapi/v3/product/stock-page` (500 Tokens per 1,000 items) to reconcile inventory.
+ */
+export async function reconcileWithLivePospalStockOnly(db: DbClient): Promise<{
+  outboxFlushed: { processed: number; confirmed: number; failed: number; lastError?: string };
+  productsReconciled: number;
+  conflictsResolved: number;
+}> {
+  const settings = db.get<{ pospal_outage_mode: number }>(
+    'SELECT pospal_outage_mode FROM store_settings WHERE id = 1',
+  );
+  if (settings?.pospal_outage_mode === 1) {
+    throw Object.assign(new Error('Cannot complete POSPAL reconciliation while POSPAL outage mode is active.'), {
+      statusCode: 503,
+    });
+  }
+
+  const outboxFlushed = await flushPospalOutboxLive(db);
+  const stockList = await fetchAllPospalV3Stock();
+  const now = new Date().toISOString();
+  let updatedCount = 0;
+
+  db.transaction(() => {
+    for (const row of stockList) {
+      if (!row.barcode) continue;
+      const local = db.get<{ id: number; pospal_stock: number }>(
+        'SELECT id, pospal_stock FROM products WHERE sku = ?',
+        [row.barcode],
+      );
+      if (!local) continue;
+      const remoteStock = Math.max(0, Math.round(Number(row.stock || 0)));
+      if (remoteStock !== local.pospal_stock) {
+        db.run('UPDATE products SET pospal_stock = ?, pospal_updated_at = ?, updated_at = ? WHERE id = ?', [
+          remoteStock,
+          now,
+          now,
+          local.id,
+        ]);
+        const newSellable = recomputeSellableStock(db, local.id);
+        db.run(
+          `INSERT OR IGNORE INTO inventory_ledger
+           (product_id, delta, balance_after, reason, reference_type, reference_id, idempotency_key, actor_type, actor_id, note, created_at)
+           VALUES (?, ?, ?, 'reconciliation_correction', 'pospal_stock_page', ?, ?, 'pospal', 'stock-page', ?, ?)`,
+          [
+            local.id,
+            remoteStock - local.pospal_stock,
+            newSellable,
+            row.barcode,
+            `stock-reconcile:${local.id}:${now}`,
+            'Live stock-page reconciliation',
+            now,
+          ],
+        );
+        updatedCount += 1;
+      }
+    }
+  });
+
+  return {
+    outboxFlushed,
+    productsReconciled: stockList.length,
+    conflictsResolved: updatedCount,
+  };
 }
 
 export async function pullLivePospalCatalogue(db: DbClient): Promise<{

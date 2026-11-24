@@ -80,17 +80,27 @@ export function createWebhooksRouter(db: DbClient): Router {
         res.status(400).json({ error: 'Missing data payload in POSPAL V3 callback.' });
         return;
       }
+      const pospalUid = String(parsed.data.uid);
+      const existingProd = db.get<{ category: string }>('SELECT category FROM products WHERE pospal_uid = ?', [
+        pospalUid,
+      ]);
       const result = applyInboundPospalChange(db, {
         eventId: parsed.eventId || v3EventId,
-        pospalUid: String(parsed.data.uid),
+        pospalUid,
         sku: parsed.data.barcode || `PP-${parsed.data.uid}`,
         name: parsed.data.name,
-        category: 'POSPAL Synced',
+        category: existingProd?.category || 'POSPAL Synced',
         basePriceSen: Math.round(Number(parsed.data.sellPrice || 0) * 100),
         stockOnHand: Math.max(0, Math.round(Number(parsed.data.stock || 0))),
         revision: Math.floor(Number(v3Timestamp) || Date.now() / 1000),
         updatedAt: parsed.data.sysUpdateTime || parsed.eventTime || new Date().toISOString(),
       });
+      if (typeof parsed.data.enable === 'number' && parsed.data.enable !== -1) {
+        db.run('UPDATE products SET is_active = ? WHERE pospal_uid = ?', [
+          parsed.data.enable === 1 ? 1 : 0,
+          pospalUid,
+        ]);
+      }
       res.json(result);
       return;
     }

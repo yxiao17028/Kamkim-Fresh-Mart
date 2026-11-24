@@ -142,7 +142,7 @@ export async function fetchAllPospalV3Products(config = getPospalConfig()): Prom
   let lastId: string | number = 0;
   let pages = 0;
 
-  while (pages < 50) {
+  while (pages < 200) {
     pages += 1;
     const page: {
       list: PospalV3Product[];
@@ -165,6 +165,38 @@ export async function fetchAllPospalV3Products(config = getPospalConfig()): Prom
       crypto.randomUUID(),
       config,
     );
+    if (Array.isArray(page.list)) {
+      all.push(...page.list);
+    }
+    if (!page.hasMore || !page.nextLastId) break;
+    lastId = page.nextLastId;
+  }
+
+  return all;
+}
+
+/**
+ * Lightweight stock-only pagination (`/openapi/v3/product/stock-page`).
+ * Returns up to 1,000 items per call for 500 Tokens (~69% cheaper than full increment-page).
+ */
+export async function fetchAllPospalV3Stock(
+  config = getPospalConfig(),
+): Promise<Array<{ barcode: string; stock: number }>> {
+  const all: Array<{ barcode: string; stock: number }> = [];
+  let lastId: string | number = 0;
+  let pages = 0;
+
+  while (pages < 50) {
+    pages += 1;
+    const page: {
+      list: Array<{ barcode: string; stock: number }>;
+      hasMore: boolean;
+      nextLastId?: string;
+    } = await callPospalV3<{
+      list: Array<{ barcode: string; stock: number }>;
+      hasMore: boolean;
+      nextLastId?: string;
+    }>('/openapi/v3/product/stock-page', { lastId }, crypto.randomUUID(), config);
     if (Array.isArray(page.list)) {
       all.push(...page.list);
     }

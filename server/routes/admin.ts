@@ -24,6 +24,7 @@ import {
   flushPospalOutboxLive,
   pullLivePospalCatalogue,
   queuePospalCatalogueUpdate,
+  reconcileWithLivePospalStockOnly,
   reconcileWithPospal,
 } from '../services/pospal';
 import { getPospalConfig, maskAppId, signPospalV3Request } from '../services/pospalClient';
@@ -669,8 +670,10 @@ export function createAdminRouter(db: DbClient): Router {
     }
   });
 
-  router.post('/pospal/reconcile', (req: AuthedRequest, res) => {
-    const result = reconcileWithPospal(db);
+  router.post('/pospal/reconcile', async (req: AuthedRequest, res) => {
+    const config = getPospalConfig();
+    const result =
+      config.mode === 'live' ? await reconcileWithLivePospalStockOnly(db) : reconcileWithPospal(db);
     writeAuditLog(db, {
       actorType: req.adminUser!.role,
       actorId: req.adminUser!.id,
