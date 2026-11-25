@@ -43,10 +43,14 @@ export const PolicyPages: React.FC<{
             <Clock className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
             <div>
               <div className="font-semibold text-amber-950">
-                {isZh ? '营业时间' : isMs ? 'Waktu Operasi' : 'Opening Hours'} ({storeInfo.operatingHours.timezone})
+                {isZh ? '营业时间' : isMs ? 'Waktu Operasi' : 'Opening Hours'}
               </div>
               <div className="text-amber-900 mt-1">
-                Mon–Sat: {storeInfo.operatingHours.monSat} · Sun: {storeInfo.operatingHours.sun}
+                {isZh
+                  ? `星期一至星期日：${storeInfo.operatingHours.monSat}`
+                  : isMs
+                    ? `Isnin–Ahad: ${storeInfo.operatingHours.monSat}`
+                    : `Mon–Sun: ${storeInfo.operatingHours.monSat}`}
               </div>
             </div>
           </div>

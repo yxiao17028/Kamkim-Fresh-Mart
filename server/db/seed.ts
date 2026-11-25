@@ -230,12 +230,12 @@ export function seedDatabase(db: DbClient): void {
       [
         'KamKim Fresh Mart',
         'No. 28, Jalan SL 1/2, Bandar Sungai Long, 43000 Kajang, Selangor, Malaysia',
-        '+603-9011 8822',
-        '+6012-345 6789',
+        '014-9314390',
+        '014-9314390',
         'Mr. Kam (Owner)',
-        'owner@kamkimfresh.my',
-        '+6012-345 6789',
-        JSON.stringify({ monSat: '08:00 - 21:00', sun: '08:30 - 20:00', timezone: 'Asia/Kuala_Lumpur' }),
+        'kamkim131414@gmail.com',
+        '014-9314390',
+        JSON.stringify({ monSat: '09:00 - 20:00', sun: '09:00 - 20:00', timezone: 'Asia/Kuala_Lumpur' }),
         JSON.stringify(DEFAULT_SLOTS),
         now,
       ],
@@ -247,7 +247,7 @@ export function seedDatabase(db: DbClient): void {
     db.run(
       `INSERT INTO admin_users (username, display_name, email, role, can_process_refunds, password_hash, is_active, created_at)
        VALUES (?, ?, ?, 'owner', 1, ?, 1, ?)`,
-      ['owner', 'Mr. Kam (Owner)', 'owner@kamkimfresh.my', hashPassword(ownerPass), now],
+      ['owner', 'Mr. Kam (Owner)', 'kamkim131414@gmail.com', hashPassword(ownerPass), now],
     );
     db.run(
       `INSERT INTO admin_users (username, display_name, email, role, can_process_refunds, password_hash, is_active, created_at)

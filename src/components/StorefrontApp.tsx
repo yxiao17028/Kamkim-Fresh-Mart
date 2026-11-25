@@ -3,7 +3,6 @@ import {
   CheckCircle2,
   Clock,
   Globe,
-  Lock,
   Minus,
   PackageSearch,
   Plus,
@@ -664,20 +663,8 @@ export const StorefrontApp: React.FC = () => {
           <div>
             <div className="font-bold text-white text-sm">KamKim Fresh Mart · Sungai Long</div>
             <div className="text-stone-400 mt-0.5">
-              {storeInfo?.storeAddress} · {storeInfo?.ownerPhone}
+              {storeInfo?.storeAddress} · {storeInfo?.ownerPhone} · {storeInfo?.ownerEmail}
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button onClick={() => setActiveTab('about')} className="text-stone-300 hover:text-white underline">
-              {t.navAbout}
-            </button>
-            <a
-              href="/admin"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 border border-stone-700 text-amber-300 font-semibold transition"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              {t.adminPortalLink}
-            </a>
           </div>
         </div>
       </footer>
