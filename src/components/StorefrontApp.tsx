@@ -407,13 +407,13 @@ export const StorefrontApp: React.FC = () => {
         {activeTab === 'shop' && (
           <>
             {/* Figure 1: Deep Forest Green Split Hero Banner */}
-            <section className="bg-[#075E40] text-white overflow-hidden">
-              <div className="max-w-7xl mx-auto grid md:grid-cols-2 items-center">
-                <div className="px-6 py-10 md:py-14 lg:px-10 space-y-4">
+            <section className="text-white overflow-hidden bg-[#075E40] md:bg-[linear-gradient(to_right,#075E40_50%,#EDE1CF_50%)]">
+              <div className="max-w-7xl mx-auto grid md:grid-cols-2 items-stretch">
+                <div className="px-6 py-12 md:py-20 lg:py-24 lg:px-10 bg-[#075E40] flex flex-col justify-center space-y-5">
                   <div className="text-[11px] font-bold tracking-widest uppercase text-amber-300">
                     {t.heroEyebrow}
                   </div>
-                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight leading-tight">
+                  <h1 className="text-3xl md:text-4xl lg:text-[42px] font-extrabold tracking-tight leading-tight">
                     {t.heroTitle}
                   </h1>
                   <p className="text-emerald-100/90 text-sm md:text-base max-w-md leading-relaxed">
@@ -422,17 +422,17 @@ export const StorefrontApp: React.FC = () => {
                   <div className="pt-2">
                     <a
                       href="#catalogue"
-                      className="inline-block px-6 py-2.5 rounded-full bg-amber-400 hover:bg-amber-300 text-stone-950 font-bold text-sm shadow-sm transition"
+                      className="inline-block px-6 py-3 rounded-full bg-amber-400 hover:bg-amber-300 text-stone-950 font-bold text-sm shadow-sm transition"
                     >
                       {t.shopNow}
                     </a>
                   </div>
                 </div>
-                <div className="h-64 md:h-[360px] w-full flex items-center justify-center bg-[#075E40]">
+                <div className="w-full aspect-[4/3] md:min-h-[440px] lg:min-h-[480px] flex items-center justify-center bg-gradient-to-b from-[#EFE7D5] to-[#E5D5BE] overflow-hidden">
                   <img
                     src="/images/hero-bag.jpg"
                     alt="KamKim Fresh Mart Groceries"
-                    className="w-full h-full object-cover object-center"
+                    className="w-full h-full object-contain object-center"
                   />
                 </div>
               </div>
