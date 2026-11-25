@@ -176,7 +176,13 @@ export const AdminDashboard: React.FC<{ admin: AdminUser; onLogout: () => void }
   const [debugResult, setDebugResult] = useState<string>('');
   const [debugLoading, setDebugLoading] = useState(false);
   const [catalogueQuery, setCatalogueQuery] = useState('');
+  const [catalogueLowStockOnly, setCatalogueLowStockOnly] = useState(false);
   const [catalogueLimit, setCatalogueLimit] = useState(50);
+  const [orderFilter, setOrderFilter] = useState<'all' | 'active' | 'exception' | 'completed'>('all');
+  const [showOrderTestSim, setShowOrderTestSim] = useState(false);
+  const [showDevTools, setShowDevTools] = useState(false);
+  const [logView, setLogView] = useState<'audit' | 'emails'>('audit');
+  const [contactForm, setContactForm] = useState({ storePhone: '', storeWhatsapp: '', ownerName: '', ownerEmail: '', ownerPhone: '' });
   const [newStaff, setNewStaff] = useState({ username: '', displayName: '', email: '', password: '', canProcessRefunds: false });
 
   const loadAll = async () => {
@@ -194,6 +200,15 @@ export const AdminDashboard: React.FC<{ admin: AdminUser; onLogout: () => void }
     setReportData(repRes);
     setAuditData(audRes);
     setSettings(setRes.settings);
+    if (setRes.settings) {
+      setContactForm({
+        storePhone: String(setRes.settings.store_phone || ''),
+        storeWhatsapp: String(setRes.settings.store_whatsapp || ''),
+        ownerName: String(setRes.settings.owner_name || ''),
+        ownerEmail: String(setRes.settings.owner_email || ''),
+        ownerPhone: String(setRes.settings.owner_phone || ''),
+      });
+    }
 
     if (admin.role === 'owner') {
       const stRes = await apiFetch<{ users: typeof staffList }>('/api/admin/staff');
@@ -350,14 +365,13 @@ export const AdminDashboard: React.FC<{ admin: AdminUser; onLogout: () => void }
             <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center font-extrabold">KK</div>
             <div>
               <div className="font-bold text-sm flex items-center gap-2">
-                KamKim Fresh Mart — Admin Operations Portal
+                KamKim Admin
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-400 text-stone-950">
-                  {admin.role === 'owner' ? 'Owner / Super Admin' : 'Store Staff'}
+                  {admin.role === 'owner' ? 'Owner' : 'Staff'}
                 </span>
               </div>
               <div className="text-xs text-stone-400">
-                Signed in as {admin.displayName} ({admin.username}) · Refund Access:{' '}
-                {admin.canProcessRefunds ? 'Enabled' : 'Restricted (Owner Only)'}
+                {admin.displayName} · Refunds: {admin.canProcessRefunds ? 'Allowed' : 'Owner Only'}
               </div>
             </div>
           </div>
@@ -407,17 +421,17 @@ export const AdminDashboard: React.FC<{ admin: AdminUser; onLogout: () => void }
       <div className="bg-white border-b border-stone-200 px-4">
         <div className="max-w-7xl mx-auto flex flex-wrap gap-1 py-2 text-xs font-semibold">
           {[
-            { id: 'orders', label: `Orders & Exceptions (${orders.length})`, icon: ClipboardList },
-            { id: 'catalogue', label: 'Catalogue & Stock', icon: Box },
-            { id: 'pospal', label: 'POSPAL Sync & Outbox', icon: RefreshCw },
-            { id: 'reports', label: 'Sales & Refund Reports', icon: BarChart3 },
+            { id: 'orders', label: `Orders (${orders.filter((o) => o.order_status !== 'Completed').length}/${orders.length})`, icon: ClipboardList },
+            { id: 'catalogue', label: 'Products & Stock', icon: Box },
+            { id: 'pospal', label: 'POSPAL Sync', icon: RefreshCw },
+            { id: 'reports', label: 'Reports', icon: BarChart3 },
             ...(admin.role === 'owner'
               ? [
-                  { id: 'staff', label: 'Staff Accounts (Owner)', icon: Users },
-                  { id: 'settings', label: 'Store & Simulators (Owner)', icon: Settings },
+                  { id: 'staff', label: 'Staff', icon: Users },
+                  { id: 'settings', label: 'Settings', icon: Settings },
                 ]
               : []),
-            { id: 'audit', label: 'Audit & Email Logs', icon: Shield },
+            { id: 'audit', label: 'Logs', icon: Shield },
           ].map((item) => {
             const Icon = item.icon;
             return (
@@ -452,19 +466,56 @@ export const AdminDashboard: React.FC<{ admin: AdminUser; onLogout: () => void }
         {/* ORDERS TAB */}
         {tab === 'orders' && (
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-lg font-bold">Order Fulfilment, Lalamove Dispatch & Merchant Item Refunds</h2>
-              <span className="text-xs text-stone-500">
-                Policy v1.3: No staff/owner cancellation controls exist. Flag unavailable lines for Owner gateway refund.
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[
+                  { id: 'all', label: `All (${orders.length})` },
+                  { id: 'active', label: `Active (${orders.filter((o) => !['Completed', 'Exception'].includes(o.order_status)).length})` },
+                  { id: 'exception', label: `Exceptions (${orders.filter((o) => o.order_status === 'Exception').length})` },
+                  { id: 'completed', label: `Completed (${orders.filter((o) => o.order_status === 'Completed').length})` },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setOrderFilter(f.id as typeof orderFilter)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${
+                      orderFilter === f.id ? 'bg-stone-900 text-white' : 'bg-white border border-stone-200 text-stone-700'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-3 text-xs text-stone-500">
+                <span>Flag unavailable items to enable Owner gateway refund.</span>
+                <label className="flex items-center gap-1.5 cursor-pointer text-stone-700 font-medium">
+                  <input
+                    type="checkbox"
+                    checked={showOrderTestSim}
+                    onChange={(e) => setShowOrderTestSim(e.target.checked)}
+                  />
+                  Test Sim
+                </label>
+              </div>
             </div>
 
-            {orders.length === 0 ? (
+            {orders.filter((o) => {
+              if (orderFilter === 'active') return !['Completed', 'Exception'].includes(o.order_status);
+              if (orderFilter === 'exception') return o.order_status === 'Exception';
+              if (orderFilter === 'completed') return o.order_status === 'Completed';
+              return true;
+            }).length === 0 ? (
               <div className="bg-white rounded-2xl border border-stone-200 p-10 text-center text-sm text-stone-500">
-                No orders placed yet. Place an order on the storefront to see live alerts and workflow controls.
+                No orders in this view.
               </div>
             ) : (
-              orders.map((order) => (
+              orders
+                .filter((o) => {
+                  if (orderFilter === 'active') return !['Completed', 'Exception'].includes(o.order_status);
+                  if (orderFilter === 'exception') return o.order_status === 'Exception';
+                  if (orderFilter === 'completed') return o.order_status === 'Completed';
+                  return true;
+                })
+                .map((order) => (
                 <div key={order.id} className="bg-white rounded-2xl border border-stone-200 p-5 shadow-sm space-y-4">
                   <div className="flex flex-wrap items-start justify-between gap-4 border-b border-stone-100 pb-3">
                     <div>
@@ -601,18 +652,20 @@ export const AdminDashboard: React.FC<{ admin: AdminUser; onLogout: () => void }
                             onClick={() => handleBookLalamove(order.id, false)}
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold"
                           >
-                            <Truck className="w-3.5 h-3.5" /> Dispatch / Retry Lalamove
+                            <Truck className="w-3.5 h-3.5" /> Book Lalamove
                           </button>
-                          <button
-                            onClick={() => handleBookLalamove(order.id, true)}
-                            className="px-3 py-1.5 rounded-xl border border-rose-300 bg-rose-50 text-rose-800 text-xs font-semibold"
-                          >
-                            Simulate Expired Quote Surge (+RM6)
-                          </button>
+                          {showOrderTestSim && (
+                            <button
+                              onClick={() => handleBookLalamove(order.id, true)}
+                              className="px-3 py-1.5 rounded-xl border border-rose-300 bg-rose-50 text-rose-800 text-xs font-semibold"
+                            >
+                              Sim Quote Surge (+RM6)
+                            </button>
+                          )}
                         </>
                       )}
 
-                    {order.delivery?.lalamove_order_id && order.delivery_status !== 'Delivered' && (
+                    {showOrderTestSim && order.delivery?.lalamove_order_id && order.delivery_status !== 'Delivered' && (
                       <>
                         <button
                           onClick={() => handleSimDelivery(order.id, 'Picked Up')}
@@ -651,20 +704,34 @@ export const AdminDashboard: React.FC<{ admin: AdminUser; onLogout: () => void }
           <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
             <div className="px-5 py-4 border-b border-stone-200 flex flex-wrap justify-between items-center gap-3">
               <div>
-                <h2 className="font-bold text-lg">Catalogue Enrichment & Audited Stock Management ({products.length})</h2>
+                <h2 className="font-bold text-base">Products & Stock ({products.length})</h2>
                 <p className="text-xs text-stone-500">
-                  Shared fields (Name, Category, Base Price, Stock) sync bidirectionally with POSPAL. Images & extended descriptions are website-only.
+                  Name, price & stock sync with POSPAL. Images & descriptions stay local.
                 </p>
               </div>
-              <input
-                value={catalogueQuery}
-                onChange={(e) => {
-                  setCatalogueQuery(e.target.value);
-                  setCatalogueLimit(50);
-                }}
-                placeholder="Search SKU, name, or category..."
-                className="px-3 py-1.5 rounded-xl border border-stone-300 text-xs w-64"
-              />
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-stone-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={catalogueLowStockOnly}
+                    onChange={(e) => {
+                      setCatalogueLowStockOnly(e.target.checked);
+                      setCatalogueLimit(50);
+                    }}
+                    className="rounded border-stone-300 text-emerald-700"
+                  />
+                  Low / Out of Stock (≤5)
+                </label>
+                <input
+                  value={catalogueQuery}
+                  onChange={(e) => {
+                    setCatalogueQuery(e.target.value);
+                    setCatalogueLimit(50);
+                  }}
+                  placeholder="Search SKU, name, or category..."
+                  className="px-3 py-1.5 rounded-xl border border-stone-300 text-xs w-60"
+                />
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -674,13 +741,14 @@ export const AdminDashboard: React.FC<{ admin: AdminUser; onLogout: () => void }
                     <th className="text-left px-4 py-3">Product</th>
                     <th className="text-left px-4 py-3">Category</th>
                     <th className="text-right px-4 py-3">Price</th>
-                    <th className="text-right px-4 py-3">POSPAL / Sellable</th>
+                    <th className="text-right px-4 py-3">POSPAL / Online</th>
                     <th className="text-right px-4 py-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100">
                   {products
                     .filter((p) => {
+                      if (catalogueLowStockOnly && p.sellable_stock > 5) return false;
                       if (!catalogueQuery.trim()) return true;
                       const q = catalogueQuery.toLowerCase();
                       return `${p.sku} ${p.name} ${p.category} ${p.pospal_uid}`.toLowerCase().includes(q);
@@ -737,20 +805,24 @@ export const AdminDashboard: React.FC<{ admin: AdminUser; onLogout: () => void }
           </div>
         )}
 
-        {/* POSPAL INTEGRATION MONITOR TAB */}
+        {/* POSPAL SYNC TAB */}
         {tab === 'pospal' && pospalData && (
-          <div className="space-y-6">
+          <div className="space-y-5">
             <div className="bg-white rounded-2xl border border-stone-200 p-5 flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h2 className="font-bold text-lg">POSPAL OpenAPI V3 Bidirectional Sync & Reconciliation</h2>
-                <p className="text-xs text-stone-500">
-                  Mode: <strong>{pospalData.connection?.mode === 'live' ? 'LIVE OpenAPI V3' : 'SANDBOX MOCK'}</strong> ·
-                  Account: <strong>{pospalData.connection?.account || 'N/A'}</strong> · AppId:{' '}
-                  <code>{pospalData.connection?.maskedAppId || '-'}</code> · Status:{' '}
-                  {pospalData.outageMode ? 'DEGRADED (Outage Mode Active)' : 'HEALTHY'} · Safety Buffer:{' '}
-                  {pospalData.safetyStockBuffer}
-                </p>
+              <div className="space-y-1">
+                <h2 className="font-bold text-base">POSPAL Sync</h2>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-stone-600">
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-semibold">
+                    {pospalData.connection?.mode === 'live' ? 'Live V3' : 'Sandbox Mock'}
+                  </span>
+                  <span>Account: <strong>{pospalData.connection?.account || 'N/A'}</strong></span>
+                  <span>· AppId: <code>{pospalData.connection?.maskedAppId || '-'}</code></span>
+                  <span className={pospalData.outageMode ? 'text-red-600 font-bold' : 'text-emerald-700 font-semibold'}>
+                    · {pospalData.outageMode ? 'Outage Mode' : 'Healthy'}
+                  </span>
+                </div>
               </div>
+
               <div className="flex flex-wrap gap-2">
                 {pospalData.connection?.mode === 'live' && (
                   <button
@@ -761,7 +833,7 @@ export const AdminDashboard: React.FC<{ admin: AdminUser; onLogout: () => void }
                           { method: 'POST' },
                         );
                         showToast(
-                          `Live POSPAL pull: fetched ${r.fetched} items (${r.importedOrUpdated} updated, ${r.conflictsResolved} conflicts).`,
+                          `Pulled ${r.fetched} items (${r.importedOrUpdated} updated).`,
                         );
                         loadAll();
                       } catch (e) {
@@ -770,9 +842,25 @@ export const AdminDashboard: React.FC<{ admin: AdminUser; onLogout: () => void }
                     }}
                     className="px-3.5 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold"
                   >
-                    Pull Live POSPAL V3 Catalogue
+                    Pull Full Catalogue
                   </button>
                 )}
+                <button
+                  onClick={async () => {
+                    try {
+                      const r = await apiFetch<{ productsReconciled: number; conflictsResolved: number }>('/api/admin/pospal/reconcile', {
+                        method: 'POST',
+                      });
+                      showToast(`Synced stock for ${r.productsReconciled} items (${r.conflictsResolved} updated).`);
+                      loadAll();
+                    } catch (e) {
+                      showToast(e instanceof Error ? e.message : 'Stock sync failed');
+                    }
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold"
+                >
+                  {pospalData.connection?.mode === 'live' ? 'Sync Stock Only' : 'Run Reconciliation'}
+                </button>
                 <button
                   onClick={async () => {
                     const r = await apiFetch<{ confirmed: number; failed: number; lastError?: string }>(
@@ -780,221 +868,225 @@ export const AdminDashboard: React.FC<{ admin: AdminUser; onLogout: () => void }
                       { method: 'POST' },
                     );
                     showToast(
-                      `Outbox flush: ${r.confirmed} confirmed, ${r.failed} failed${r.lastError ? ` (${r.lastError})` : ''}`,
+                      `Retry queue: ${r.confirmed} sent, ${r.failed} failed${r.lastError ? ` (${r.lastError})` : ''}`,
                     );
                     loadAll();
                   }}
                   className="px-3.5 py-2 rounded-xl border border-stone-300 text-xs font-semibold hover:bg-stone-50"
                 >
-                  Retry Outbox
-                </button>
-                <button
-                  onClick={async () => {
-                    try {
-                      const r = await apiFetch<{ productsReconciled: number; conflictsResolved: number }>('/api/admin/pospal/reconcile', {
-                        method: 'POST',
-                      });
-                      showToast(`Reconciled ${r.productsReconciled} products (${r.conflictsResolved} stock diffs updated).`);
-                      loadAll();
-                    } catch (e) {
-                      showToast(e instanceof Error ? e.message : 'Reconcile failed');
-                    }
-                  }}
-                  className="px-3.5 py-2 rounded-xl bg-emerald-700 text-white text-xs font-semibold"
-                >
-                  {pospalData.connection?.mode === 'live' ? 'Sync Stock Only / Reconcile' : 'Run Full Reconciliation'}
+                  Retry Failed ({pospalData.outbox.filter((j) => j.status === 'Failed' || j.status === 'Pending').length})
                 </button>
               </div>
             </div>
 
-            {/* POSPAL OpenAPI V3 Live Debugger (Owner Only) */}
-            {admin.role === 'owner' && pospalData.connection?.mode === 'live' && (
+            <div className="grid lg:grid-cols-2 gap-5">
               <div className="bg-white rounded-2xl border border-stone-200 p-5 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <h3 className="font-bold text-sm">POSPAL OpenAPI V3 接口调试器 (Signed Server-Side)</h3>
-                    <p className="text-xs text-stone-500">
-                      自动生成 <code>X-App-Id</code>、<code>X-Timestamp</code>、<code>X-Request-Id</code> 与 <code>X-Sign</code>，密钥仅保留在后端。
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <select
-                      value={debugEndpoint}
-                      onChange={(e) => {
-                        const ep = e.target.value;
-                        setDebugEndpoint(ep);
-                        if (ep === '/openapi/v3/product/increment-page') {
-                          setDebugBodyText(
-                            JSON.stringify(
-                              {
-                                account: pospalData.connection?.account || 'KAMKIM',
-                                lastId: 0,
-                                order: 'asc',
-                                limit: 10,
-                                needCategory: true,
-                                needImages: true,
-                                needMainUnit: true,
-                              },
-                              null,
-                              2,
-                            ),
-                          );
-                        } else {
-                          setDebugBodyText(
-                            JSON.stringify({ account: pospalData.connection?.account || 'KAMKIM', lastId: 0 }, null, 2),
-                          );
-                        }
-                      }}
-                      className="px-3 py-1.5 rounded-xl border border-stone-300 text-xs bg-white font-mono"
-                    >
-                      <option value="/openapi/v3/product/increment-page">/openapi/v3/product/increment-page (查询商品)</option>
-                      <option value="/openapi/v3/product/stock-page">/openapi/v3/product/stock-page (查询商品库存)</option>
-                      <option value="/openapi/v3/product/category-page">/openapi/v3/product/category-page (查询商品分类)</option>
-                      <option value="/openapi/v3/product/supplier-page">/openapi/v3/product/supplier-page (查询供应商)</option>
-                      <option value="/openapi/v3/product/unit-page">/openapi/v3/product/unit-page (查询商品单位)</option>
-                    </select>
-                    <button
-                      type="button"
-                      disabled={debugLoading}
-                      onClick={async () => {
-                        setDebugLoading(true);
-                        try {
-                          const parsedBody = JSON.parse(debugBodyText);
-                          const res = await apiFetch('/api/admin/pospal/debug', {
-                            method: 'POST',
-                            body: JSON.stringify({ endpointPath: debugEndpoint, body: parsedBody }),
-                          });
-                          setDebugResult(JSON.stringify(res, null, 2));
-                        } catch (err) {
-                          setDebugResult(err instanceof Error ? err.message : 'Debug request failed');
-                        } finally {
-                          setDebugLoading(false);
-                        }
-                      }}
-                      className="px-4 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold disabled:opacity-50"
-                    >
-                      {debugLoading ? '发送中...' : '发起签名调试请求'}
-                    </button>
-                  </div>
-                </div>
-                <div className="grid lg:grid-cols-2 gap-3">
-                  <textarea
-                    rows={10}
-                    value={debugBodyText}
-                    onChange={(e) => setDebugBodyText(e.target.value)}
-                    className="w-full p-3 rounded-xl border border-stone-300 font-mono text-xs bg-stone-50"
-                  />
-                  <pre className="w-full p-3 rounded-xl border border-stone-800 bg-stone-950 text-emerald-200 font-mono text-xs overflow-auto max-h-64">
-                    {debugResult || '// 点击“发起签名调试请求”查看 POSPAL 实时返回结果'}
-                  </pre>
+                <h3 className="font-bold text-sm">Outbound Sync Queue ({pospalData.outbox.length})</h3>
+                <div className="space-y-2 max-h-72 overflow-y-auto text-xs">
+                  {pospalData.outbox.length === 0 ? (
+                    <div className="text-stone-400 py-6 text-center">Queue is empty.</div>
+                  ) : (
+                    pospalData.outbox.map((job) => (
+                      <div key={job.id} className="p-2.5 rounded-xl bg-stone-50 border border-stone-200 flex justify-between gap-2">
+                        <div>
+                          <div className="font-semibold">
+                            #{job.id} · {job.event_type} · {job.sku} ({job.delta >= 0 ? `+${job.delta}` : job.delta})
+                          </div>
+                          {job.last_error && <div className="text-red-600 mt-0.5">{job.last_error}</div>}
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 h-fit rounded font-bold ${
+                            job.status === 'Confirmed'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : job.status === 'Failed'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {job.status}
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
-            )}
 
-            {/* Simulate POSPAL-side product.change callback */}
-            <div className="bg-white rounded-2xl border border-stone-200 p-5 space-y-3">
-              <h3 className="font-bold text-sm">Simulate Inbound POSPAL `product.change` Callback (AT-03 / AT-05)</h3>
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  const r = await apiFetch<{ applied: { reason: string; conflictDetected: boolean } }>(
-                    '/api/admin/pospal/simulate-remote-change',
-                    {
-                      method: 'POST',
-                      body: JSON.stringify({
-                        pospalUid: remoteSimForm.pospalUid,
-                        name: remoteSimForm.name || undefined,
-                        basePriceSen: remoteSimForm.basePriceSen ? Number(remoteSimForm.basePriceSen) : undefined,
-                        stockOnHand: remoteSimForm.stockOnHand ? Number(remoteSimForm.stockOnHand) : undefined,
-                      }),
-                    },
-                  );
-                  showToast(`POSPAL change processed (${r.applied.reason}${r.applied.conflictDetected ? ' - CONFLICT RESOLVED' : ''}). Website media preserved.`);
-                  loadAll();
-                }}
-                className="grid sm:grid-cols-5 gap-3"
+              <div className="bg-white rounded-2xl border border-stone-200 p-5 space-y-3">
+                <h3 className="font-bold text-sm">Stock Ledger ({pospalData.ledger.length})</h3>
+                <div className="space-y-2 max-h-72 overflow-y-auto text-xs">
+                  {pospalData.ledger.length === 0 ? (
+                    <div className="text-stone-400 py-6 text-center">No stock movements yet.</div>
+                  ) : (
+                    pospalData.ledger.map((l) => (
+                      <div key={l.id} className="p-2.5 rounded-xl bg-stone-50 border border-stone-200 flex justify-between gap-2">
+                        <div>
+                          <div className="font-semibold">
+                            {l.sku} · {l.reason} ({l.delta >= 0 ? `+${l.delta}` : l.delta}) → Bal {l.balance_after}
+                          </div>
+                          <div className="text-stone-500">{l.note}</div>
+                        </div>
+                        <span className="font-mono text-stone-400">{l.reference_id}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Collapsible Developer & Testing Tools */}
+            <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowDevTools(!showDevTools)}
+                className="w-full px-5 py-3.5 text-left flex items-center justify-between text-xs font-bold text-stone-600 hover:bg-stone-50"
               >
-                <select
-                  value={remoteSimForm.pospalUid}
-                  onChange={(e) => setRemoteSimForm({ ...remoteSimForm, pospalUid: e.target.value })}
-                  className="px-3 py-2 rounded-xl border border-stone-300 text-xs bg-white"
-                >
-                  {pospalData.mockProducts.map((mp) => (
-                    <option key={mp.pospal_uid} value={mp.pospal_uid}>
-                      {mp.pospal_uid} · {mp.sku} (stock {mp.stock_on_hand})
-                    </option>
-                  ))}
-                </select>
-                <input
-                  value={remoteSimForm.name}
-                  onChange={(e) => setRemoteSimForm({ ...remoteSimForm, name: e.target.value })}
-                  placeholder="New POSPAL Name (optional)"
-                  className="px-3 py-2 rounded-xl border border-stone-300 text-xs"
-                />
-                <input
-                  type="number"
-                  value={remoteSimForm.basePriceSen}
-                  onChange={(e) => setRemoteSimForm({ ...remoteSimForm, basePriceSen: e.target.value })}
-                  placeholder="New Price in sen (e.g. 550)"
-                  className="px-3 py-2 rounded-xl border border-stone-300 text-xs"
-                />
-                <input
-                  type="number"
-                  value={remoteSimForm.stockOnHand}
-                  onChange={(e) => setRemoteSimForm({ ...remoteSimForm, stockOnHand: e.target.value })}
-                  placeholder="New POSPAL Stock (e.g. 20)"
-                  className="px-3 py-2 rounded-xl border border-stone-300 text-xs"
-                />
-                <button type="submit" className="px-3 py-2 rounded-xl bg-stone-900 text-white text-xs font-semibold">
-                  Trigger POSPAL Event
-                </button>
-              </form>
-            </div>
+                <span>Developer & API Testing Tools (V3 Debugger & Callback Simulator)</span>
+                <span>{showDevTools ? 'Hide ▲' : 'Show ▼'}</span>
+              </button>
 
-            <div className="grid lg:grid-cols-2 gap-6">
-              <div className="bg-white rounded-2xl border border-stone-200 p-5 space-y-3">
-                <h3 className="font-bold text-sm">Durable POSPAL Outbox Queue</h3>
-                <div className="space-y-2 max-h-80 overflow-y-auto text-xs">
-                  {pospalData.outbox.map((job) => (
-                    <div key={job.id} className="p-2.5 rounded-xl bg-stone-50 border border-stone-200 flex justify-between gap-2">
-                      <div>
-                        <div className="font-semibold">
-                          #{job.id} · {job.event_type} · {job.sku} (delta {job.delta})
+              {showDevTools && (
+                <div className="p-5 border-t border-stone-200 space-y-6">
+                  {admin.role === 'owner' && pospalData.connection?.mode === 'live' && (
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <h3 className="font-bold text-sm">POSPAL V3 API Debugger</h3>
+                          <p className="text-xs text-stone-500">Signed server-side; appKey never leaves the backend.</p>
                         </div>
-                        {job.last_error && <div className="text-red-600 mt-0.5">{job.last_error}</div>}
+                        <div className="flex gap-2">
+                          <select
+                            value={debugEndpoint}
+                            onChange={(e) => {
+                              const ep = e.target.value;
+                              setDebugEndpoint(ep);
+                              if (ep === '/openapi/v3/product/increment-page') {
+                                setDebugBodyText(
+                                  JSON.stringify(
+                                    {
+                                      account: pospalData.connection?.account || 'KAMKIM',
+                                      lastId: 0,
+                                      order: 'asc',
+                                      limit: 10,
+                                      needCategory: true,
+                                      needImages: true,
+                                      needMainUnit: true,
+                                    },
+                                    null,
+                                    2,
+                                  ),
+                                );
+                              } else {
+                                setDebugBodyText(
+                                  JSON.stringify({ account: pospalData.connection?.account || 'KAMKIM', lastId: 0 }, null, 2),
+                                );
+                              }
+                            }}
+                            className="px-3 py-1.5 rounded-xl border border-stone-300 text-xs bg-white font-mono"
+                          >
+                            <option value="/openapi/v3/product/increment-page">increment-page</option>
+                            <option value="/openapi/v3/product/stock-page">stock-page</option>
+                            <option value="/openapi/v3/product/category-page">category-page</option>
+                            <option value="/openapi/v3/product/supplier-page">supplier-page</option>
+                            <option value="/openapi/v3/product/unit-page">unit-page</option>
+                          </select>
+                          <button
+                            type="button"
+                            disabled={debugLoading}
+                            onClick={async () => {
+                              setDebugLoading(true);
+                              try {
+                                const parsedBody = JSON.parse(debugBodyText);
+                                const res = await apiFetch('/api/admin/pospal/debug', {
+                                  method: 'POST',
+                                  body: JSON.stringify({ endpointPath: debugEndpoint, body: parsedBody }),
+                                });
+                                setDebugResult(JSON.stringify(res, null, 2));
+                              } catch (err) {
+                                setDebugResult(err instanceof Error ? err.message : 'Debug request failed');
+                              } finally {
+                                setDebugLoading(false);
+                              }
+                            }}
+                            className="px-4 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold disabled:opacity-50"
+                          >
+                            {debugLoading ? 'Sending...' : 'Send Request'}
+                          </button>
+                        </div>
                       </div>
-                      <span
-                        className={`px-2 py-0.5 h-fit rounded font-bold ${
-                          job.status === 'Confirmed'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : job.status === 'Failed'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-amber-100 text-amber-800'
-                        }`}
+                      <div className="grid lg:grid-cols-2 gap-3">
+                        <textarea
+                          rows={8}
+                          value={debugBodyText}
+                          onChange={(e) => setDebugBodyText(e.target.value)}
+                          className="w-full p-3 rounded-xl border border-stone-300 font-mono text-xs bg-stone-50"
+                        />
+                        <pre className="w-full p-3 rounded-xl border border-stone-800 bg-stone-950 text-emerald-200 font-mono text-xs overflow-auto max-h-56">
+                          {debugResult || '// Response appears here'}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-3 pt-4 border-t border-stone-200">
+                    <h3 className="font-bold text-sm">Simulate Inbound `product.change` Callback</h3>
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        const r = await apiFetch<{ applied: { reason: string; conflictDetected: boolean } }>(
+                          '/api/admin/pospal/simulate-remote-change',
+                          {
+                            method: 'POST',
+                            body: JSON.stringify({
+                              pospalUid: remoteSimForm.pospalUid,
+                              name: remoteSimForm.name || undefined,
+                              basePriceSen: remoteSimForm.basePriceSen ? Number(remoteSimForm.basePriceSen) : undefined,
+                              stockOnHand: remoteSimForm.stockOnHand ? Number(remoteSimForm.stockOnHand) : undefined,
+                            }),
+                          },
+                        );
+                        showToast(`POSPAL event: ${r.applied.reason}${r.applied.conflictDetected ? ' (conflict resolved)' : ''}.`);
+                        loadAll();
+                      }}
+                      className="grid sm:grid-cols-5 gap-3"
+                    >
+                      <select
+                        value={remoteSimForm.pospalUid}
+                        onChange={(e) => setRemoteSimForm({ ...remoteSimForm, pospalUid: e.target.value })}
+                        className="px-3 py-2 rounded-xl border border-stone-300 text-xs bg-white"
                       >
-                        {job.status}
-                      </span>
-                    </div>
-                  ))}
+                        {pospalData.mockProducts.slice(0, 100).map((mp) => (
+                          <option key={mp.pospal_uid} value={mp.pospal_uid}>
+                            {mp.sku} (stock {mp.stock_on_hand})
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        value={remoteSimForm.name}
+                        onChange={(e) => setRemoteSimForm({ ...remoteSimForm, name: e.target.value })}
+                        placeholder="New Name (optional)"
+                        className="px-3 py-2 rounded-xl border border-stone-300 text-xs"
+                      />
+                      <input
+                        type="number"
+                        value={remoteSimForm.basePriceSen}
+                        onChange={(e) => setRemoteSimForm({ ...remoteSimForm, basePriceSen: e.target.value })}
+                        placeholder="New Price in sen"
+                        className="px-3 py-2 rounded-xl border border-stone-300 text-xs"
+                      />
+                      <input
+                        type="number"
+                        value={remoteSimForm.stockOnHand}
+                        onChange={(e) => setRemoteSimForm({ ...remoteSimForm, stockOnHand: e.target.value })}
+                        placeholder="New Stock"
+                        className="px-3 py-2 rounded-xl border border-stone-300 text-xs"
+                      />
+                      <button type="submit" className="px-3 py-2 rounded-xl bg-stone-900 text-white text-xs font-semibold">
+                        Trigger Event
+                      </button>
+                    </form>
+                  </div>
                 </div>
-              </div>
-
-              <div className="bg-white rounded-2xl border border-stone-200 p-5 space-y-3">
-                <h3 className="font-bold text-sm">Immutable Inventory Ledger</h3>
-                <div className="space-y-2 max-h-80 overflow-y-auto text-xs">
-                  {pospalData.ledger.map((l) => (
-                    <div key={l.id} className="p-2.5 rounded-xl bg-stone-50 border border-stone-200 flex justify-between gap-2">
-                      <div>
-                        <div className="font-semibold">
-                          {l.sku} · {l.reason} ({l.delta >= 0 ? `+${l.delta}` : l.delta}) → Bal {l.balance_after}
-                        </div>
-                        <div className="text-stone-500">{l.note}</div>
-                      </div>
-                      <span className="font-mono text-stone-400">{l.reference_id}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              )}
             </div>
           </div>
         )}
@@ -1197,90 +1289,152 @@ export const AdminDashboard: React.FC<{ admin: AdminUser; onLogout: () => void }
           </div>
         )}
 
-        {/* SETTINGS & INTEGRATION SIMULATORS TAB (OWNER ONLY) */}
+        {/* SETTINGS TAB (OWNER ONLY) */}
         {tab === 'settings' && admin.role === 'owner' && settings && (
-          <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-5 max-w-3xl">
-            <h2 className="font-bold text-lg flex items-center gap-2">
-              <Store className="w-5 h-5 text-emerald-700" /> Store Owner Contact & Integration Failure Simulators
-            </h2>
-            <div className="grid sm:grid-cols-2 gap-4 text-sm">
-              {[
-                { key: 'pospal_outage_mode', prop: 'pospalOutageMode', label: 'Simulate POSPAL Outage Mode (AT-06)' },
-                {
-                  key: 'lalamove_force_price_increase',
-                  prop: 'lalamoveForcePriceIncrease',
-                  label: 'Simulate Lalamove Rate Surge (+RM 6.00)',
-                },
-                {
-                  key: 'lalamove_hide_coordinates',
-                  prop: 'lalamoveHideCoordinates',
-                  label: 'Hide Rider Coordinates (AT-18 Fallback)',
-                },
-                {
-                  key: 'gateway_force_refund_failure',
-                  prop: 'gatewayForceRefundFailure',
-                  label: 'Simulate Gateway Refund Failure (AT-13)',
-                },
-              ].map((toggle) => {
-                const active = settings[toggle.key] === 1;
-                return (
-                  <button
-                    key={toggle.key}
-                    onClick={async () => {
-                      await apiFetch('/api/admin/settings', {
-                        method: 'PATCH',
-                        body: JSON.stringify({ [toggle.prop]: !active }),
-                      });
-                      loadAll();
-                    }}
-                    className={`p-3.5 rounded-xl border text-left flex items-center justify-between ${
-                      active ? 'border-rose-400 bg-rose-50 text-rose-900' : 'border-stone-200 bg-stone-50'
-                    }`}
-                  >
-                    <span className="font-semibold text-xs">{toggle.label}</span>
-                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${active ? 'bg-rose-600 text-white' : 'bg-stone-200'}`}>
-                      {active ? 'ON' : 'OFF'}
-                    </span>
-                  </button>
-                );
-              })}
+          <div className="grid lg:grid-cols-2 gap-6">
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                await apiFetch('/api/admin/settings', {
+                  method: 'PATCH',
+                  body: JSON.stringify(contactForm),
+                });
+                showToast('Store & Owner contact details saved.');
+                loadAll();
+              }}
+              className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4 text-sm"
+            >
+              <h2 className="font-bold text-base flex items-center gap-2">
+                <Store className="w-4 h-4 text-emerald-700" /> Store & Owner Contact Info
+              </h2>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-500 mb-1">Owner Name</label>
+                  <input
+                    value={contactForm.ownerName}
+                    onChange={(e) => setContactForm({ ...contactForm, ownerName: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-stone-500 mb-1">Owner Email</label>
+                  <input
+                    type="email"
+                    value={contactForm.ownerEmail}
+                    onChange={(e) => setContactForm({ ...contactForm, ownerEmail: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-stone-500 mb-1">Owner Phone</label>
+                  <input
+                    value={contactForm.ownerPhone}
+                    onChange={(e) => setContactForm({ ...contactForm, ownerPhone: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-stone-500 mb-1">WhatsApp</label>
+                  <input
+                    value={contactForm.storeWhatsapp}
+                    onChange={(e) => setContactForm({ ...contactForm, storeWhatsapp: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300"
+                  />
+                </div>
+              </div>
+              <button type="submit" className="px-5 py-2 rounded-xl bg-emerald-700 text-white font-bold text-xs">
+                Save Contact Info
+              </button>
+            </form>
+
+            <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
+              <div>
+                <h2 className="font-bold text-base">Testing Failure Simulators</h2>
+                <p className="text-xs text-stone-500">Use only for QA testing (keep OFF in production).</p>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                {[
+                  { key: 'pospal_outage_mode', prop: 'pospalOutageMode', label: 'POSPAL Outage Mode' },
+                  { key: 'lalamove_force_price_increase', prop: 'lalamoveForcePriceIncrease', label: 'Lalamove Surge (+RM6)' },
+                  { key: 'lalamove_hide_coordinates', prop: 'lalamoveHideCoordinates', label: 'Hide Rider Coordinates' },
+                  { key: 'gateway_force_refund_failure', prop: 'gatewayForceRefundFailure', label: 'Gateway Refund Failure' },
+                ].map((toggle) => {
+                  const active = settings[toggle.key] === 1;
+                  return (
+                    <button
+                      key={toggle.key}
+                      onClick={async () => {
+                        await apiFetch('/api/admin/settings', {
+                          method: 'PATCH',
+                          body: JSON.stringify({ [toggle.prop]: !active }),
+                        });
+                        loadAll();
+                      }}
+                      className={`p-3 rounded-xl border text-left flex items-center justify-between ${
+                        active ? 'border-rose-400 bg-rose-50 text-rose-900' : 'border-stone-200 bg-stone-50'
+                      }`}
+                    >
+                      <span className="font-semibold text-xs">{toggle.label}</span>
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${active ? 'bg-rose-600 text-white' : 'bg-stone-200'}`}>
+                        {active ? 'ON' : 'OFF'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
 
-        {/* AUDIT LOGS TAB */}
+        {/* LOGS TAB */}
         {tab === 'audit' && auditData && (
-          <div className="grid lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl border border-stone-200 p-5 space-y-3">
-              <h2 className="font-bold text-base">Immutable Operational Audit Trail</h2>
-              <div className="space-y-2 max-h-[500px] overflow-y-auto text-xs">
+          <div className="bg-white rounded-2xl border border-stone-200 p-5 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="font-bold text-base">System Logs</h2>
+              <div className="flex gap-1 bg-stone-100 p-1 rounded-xl text-xs font-semibold">
+                <button
+                  onClick={() => setLogView('audit')}
+                  className={`px-3 py-1.5 rounded-lg ${logView === 'audit' ? 'bg-white shadow text-stone-900' : 'text-stone-600'}`}
+                >
+                  Audit Trail ({auditData.logs.length})
+                </button>
+                <button
+                  onClick={() => setLogView('emails')}
+                  className={`px-3 py-1.5 rounded-lg ${logView === 'emails' ? 'bg-white shadow text-stone-900' : 'text-stone-600'}`}
+                >
+                  Customer Emails ({auditData.emails.length})
+                </button>
+              </div>
+            </div>
+
+            {logView === 'audit' ? (
+              <div className="space-y-2 max-h-[520px] overflow-y-auto text-xs">
                 {auditData.logs.map((l) => (
-                  <div key={l.id} className="p-2.5 rounded-xl bg-stone-50 border border-stone-200">
-                    <div className="flex justify-between font-semibold">
-                      <span>{l.action}</span>
-                      <span className="text-stone-400">{new Date(l.created_at).toLocaleTimeString()}</span>
+                  <div key={l.id} className="p-2.5 rounded-xl bg-stone-50 border border-stone-200 flex flex-wrap justify-between gap-2">
+                    <div>
+                      <span className="font-semibold">{l.action}</span>{' '}
+                      <span className="text-stone-500">
+                        · {l.actor_name} ({l.actor_type}) · {l.entity_type}:{l.entity_id}
+                      </span>
                     </div>
-                    <div className="text-stone-600">
-                      Actor: {l.actor_name} ({l.actor_type}) · {l.entity_type}:{l.entity_id}
-                    </div>
+                    <span className="text-stone-400">{new Date(l.created_at).toLocaleString()}</span>
                   </div>
                 ))}
               </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-stone-200 p-5 space-y-3">
-              <h2 className="font-bold text-base">Transactional Customer Email Log</h2>
-              <div className="space-y-2 max-h-[500px] overflow-y-auto text-xs">
+            ) : (
+              <div className="space-y-2 max-h-[520px] overflow-y-auto text-xs">
                 {auditData.emails.map((em) => (
-                  <div key={em.id} className="p-2.5 rounded-xl bg-stone-50 border border-stone-200">
-                    <div className="font-semibold">{em.subject}</div>
-                    <div className="text-stone-500">
-                      To: {em.recipient} ({em.lang})
+                  <div key={em.id} className="p-3 rounded-xl bg-stone-50 border border-stone-200">
+                    <div className="flex justify-between font-semibold">
+                      <span>{em.subject}</span>
+                      <span className="text-stone-400">{new Date(em.created_at).toLocaleString()}</span>
                     </div>
+                    <div className="text-stone-500 mt-0.5">To: {em.recipient} ({em.lang})</div>
                     <div className="text-stone-700 mt-1">{em.body}</div>
                   </div>
                 ))}
               </div>
-            </div>
+            )}
           </div>
         )}
       </main>
