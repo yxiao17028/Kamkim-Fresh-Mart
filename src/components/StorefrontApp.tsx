@@ -406,17 +406,17 @@ export const StorefrontApp: React.FC = () => {
       <main className="flex-1">
         {activeTab === 'shop' && (
           <>
-            {/* Hero Split Banner: full-width emerald banner with compact full-bleed photo frame so 100% of image displays */}
+            {/* Hero Split Banner: full-bleed green banner expanding left, compact full-height photo anchored flush right */}
             <section className="w-full bg-[#075E40] text-white overflow-hidden">
-              <div className="max-w-7xl mx-auto px-6 lg:px-10 py-8 md:py-10 grid md:grid-cols-[1fr_auto] items-center gap-8 lg:gap-12">
-                <div className="flex flex-col justify-center space-y-5">
+              <div className="flex flex-col md:flex-row items-stretch">
+                <div className="flex-1 px-6 py-10 md:py-12 md:pl-[max(2rem,calc((100vw-80rem)/2+1rem))] md:pr-10 flex flex-col justify-center space-y-5">
                   <div className="text-[11px] font-bold tracking-widest uppercase text-amber-300">
                     {t.heroEyebrow}
                   </div>
-                  <h1 className="text-3xl md:text-4xl lg:text-[42px] font-extrabold tracking-tight leading-tight">
+                  <h1 className="text-3xl md:text-4xl lg:text-[42px] font-extrabold tracking-tight leading-tight max-w-xl">
                     {t.heroTitle}
                   </h1>
-                  <p className="text-emerald-100/90 text-sm md:text-base max-w-md leading-relaxed">
+                  <p className="text-emerald-100/90 text-sm md:text-base max-w-lg leading-relaxed">
                     {t.heroSubtitle}
                   </p>
                   <div className="pt-2">
@@ -428,14 +428,12 @@ export const StorefrontApp: React.FC = () => {
                     </a>
                   </div>
                 </div>
-                <div className="flex justify-center md:justify-end">
-                  <div className="w-[260px] sm:w-[290px] md:w-[310px] lg:w-[330px] rounded-2xl overflow-hidden bg-white shadow-xl shrink-0">
-                    <img
-                      src="/images/hero-bag.jpg"
-                      alt="KamKim Fresh Mart Groceries"
-                      className="w-full h-auto block"
-                    />
-                  </div>
+                <div className="w-full md:w-[320px] lg:w-[350px] shrink-0 bg-white">
+                  <img
+                    src="/images/hero-bag.jpg"
+                    alt="KamKim Fresh Mart Groceries"
+                    className="w-full h-auto block"
+                  />
                 </div>
               </div>
             </section>
