@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS store_settings (
   store_address TEXT NOT NULL,
   store_phone TEXT NOT NULL,
   store_whatsapp TEXT NOT NULL,
+  store_map_url TEXT NOT NULL DEFAULT 'https://maps.app.goo.gl/RcdFYV2JjrTtXaC36',
+  store_facebook_url TEXT NOT NULL DEFAULT 'https://www.facebook.com/profile.php?id=100075855163757',
   owner_name TEXT NOT NULL,
   owner_email TEXT NOT NULL,
   owner_phone TEXT NOT NULL,

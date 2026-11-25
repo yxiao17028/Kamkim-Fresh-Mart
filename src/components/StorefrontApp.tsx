@@ -660,10 +660,29 @@ export const StorefrontApp: React.FC = () => {
 
       <footer className="bg-stone-900 text-stone-300 mt-10">
         <div className="max-w-7xl mx-auto px-4 py-6 flex flex-wrap items-center justify-between gap-4 text-xs">
-          <div>
+          <div className="space-y-1">
             <div className="font-bold text-white text-sm">KamKim Fresh Mart · Sungai Long</div>
-            <div className="text-stone-400 mt-0.5">
-              {storeInfo?.storeAddress} · {storeInfo?.ownerPhone} · {storeInfo?.ownerEmail}
+            <div className="text-stone-400 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <a
+                href={storeInfo?.storeMapUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-white underline decoration-stone-600 underline-offset-2"
+              >
+                {storeInfo?.storeAddress}
+              </a>
+              <span>· {storeInfo?.ownerPhone}</span>
+              <span>· {storeInfo?.ownerEmail}</span>
+              {storeInfo?.storeFacebookUrl && (
+                <a
+                  href={storeInfo.storeFacebookUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-400 hover:text-blue-300 underline"
+                >
+                  · Facebook
+                </a>
+              )}
             </div>
           </div>
         </div>

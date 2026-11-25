@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Clock, MapPin, MessageCircle, Phone, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Clock, ExternalLink, MapPin, MessageCircle, Phone, ShieldCheck } from 'lucide-react';
 import { Lang, StoreInfo } from '../types';
 
 export const PolicyPages: React.FC<{
@@ -29,15 +29,26 @@ export const PolicyPages: React.FC<{
         </div>
 
         <div className="grid md:grid-cols-2 gap-4 text-sm">
-          <div className="rounded-xl bg-emerald-50/70 border border-emerald-200 p-4 flex gap-3">
+          <a
+            href={storeInfo.storeMapUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-xl bg-emerald-50/70 hover:bg-emerald-50 border border-emerald-200 p-4 flex gap-3 transition group"
+          >
             <MapPin className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
             <div>
-              <div className="font-semibold text-emerald-950">
+              <div className="font-semibold text-emerald-950 flex items-center gap-1.5">
                 {isZh ? '门店与自取地址' : isMs ? 'Alamat Kedai & Ambil Sendiri' : 'Store & Self-Pickup Address'}
+                <ExternalLink className="w-3.5 h-3.5 text-emerald-700 opacity-75 group-hover:opacity-100" />
               </div>
-              <div className="text-emerald-900 mt-1">{storeInfo.storeAddress}</div>
+              <div className="text-emerald-900 mt-1 underline decoration-emerald-400/70 underline-offset-2">
+                {storeInfo.storeAddress}
+              </div>
+              <div className="text-xs text-emerald-700 font-medium mt-1">
+                {isZh ? '点击在 Google Maps 查看导航 →' : isMs ? 'Klik untuk buka Google Maps →' : 'Open in Google Maps →'}
+              </div>
             </div>
-          </div>
+          </a>
 
           <div className="rounded-xl bg-amber-50/70 border border-amber-200 p-4 flex gap-3">
             <Clock className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
@@ -56,7 +67,7 @@ export const PolicyPages: React.FC<{
           </div>
         </div>
 
-        <div className="grid sm:grid-cols-3 gap-3 text-sm pt-1">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm pt-1">
           <div className="p-3.5 rounded-xl bg-stone-50 border border-stone-200 flex items-center gap-3">
             <Phone className="w-4 h-4 text-emerald-700 shrink-0" />
             <div>
@@ -78,6 +89,22 @@ export const PolicyPages: React.FC<{
               <div className="font-semibold text-stone-900 truncate">{storeInfo.ownerEmail}</div>
             </div>
           </div>
+          <a
+            href={storeInfo.storeFacebookUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="p-3.5 rounded-xl bg-blue-50/60 hover:bg-blue-50 border border-blue-200 flex items-center gap-3 transition"
+          >
+            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-blue-600 shrink-0" aria-hidden="true">
+              <path d="M22 12.07C22 6.48 17.52 2 12 2S2 6.48 2 12.07c0 5.02 3.66 9.18 8.44 9.93v-7.03H7.9v-2.9h2.54V9.85c0-2.5 1.49-3.89 3.78-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.89h2.78l-.44 2.9h-2.34V22c4.78-.75 8.43-4.91 8.43-9.93Z" />
+            </svg>
+            <div className="min-w-0">
+              <div className="text-xs text-blue-600 font-medium">Facebook</div>
+              <div className="font-semibold text-blue-950 flex items-center gap-1">
+                KamKim Fresh Mart <ExternalLink className="w-3 h-3" />
+              </div>
+            </div>
+          </a>
         </div>
       </section>
 

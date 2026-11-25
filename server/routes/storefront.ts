@@ -90,6 +90,8 @@ export function createStorefrontRouter(db: DbClient): Router {
       store_address: string;
       store_phone: string;
       store_whatsapp: string;
+      store_map_url: string;
+      store_facebook_url: string;
       owner_name: string;
       owner_email: string;
       owner_phone: string;
@@ -97,7 +99,7 @@ export function createStorefrontRouter(db: DbClient): Router {
       slots_json: string;
       pospal_outage_mode: number;
     }>(
-      `SELECT store_name, store_address, store_phone, store_whatsapp, owner_name, owner_email, owner_phone, operating_hours_json, slots_json, pospal_outage_mode
+      `SELECT store_name, store_address, store_phone, store_whatsapp, store_map_url, store_facebook_url, owner_name, owner_email, owner_phone, operating_hours_json, slots_json, pospal_outage_mode
        FROM store_settings WHERE id = 1`,
     );
     if (!settings) {
@@ -110,6 +112,8 @@ export function createStorefrontRouter(db: DbClient): Router {
       storeAddress: settings.store_address,
       storePhone: settings.store_phone,
       storeWhatsapp: settings.store_whatsapp,
+      storeMapUrl: settings.store_map_url,
+      storeFacebookUrl: settings.store_facebook_url,
       ownerName: settings.owner_name,
       ownerEmail: settings.owner_email,
       ownerPhone: settings.owner_phone,
@@ -691,7 +695,7 @@ export function createStorefrontRouter(db: DbClient): Router {
       order.id as number,
     ]);
     const ownerContact = db.get(
-      'SELECT store_name, store_address, store_phone, store_whatsapp, owner_name, owner_email, owner_phone FROM store_settings WHERE id = 1',
+      'SELECT store_name, store_address, store_phone, store_whatsapp, store_map_url, store_facebook_url, owner_name, owner_email, owner_phone FROM store_settings WHERE id = 1',
     );
 
     res.json({

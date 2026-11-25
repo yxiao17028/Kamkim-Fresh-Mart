@@ -122,5 +122,20 @@ export async function createDbClient(dbPath?: string): Promise<DbClient> {
   const client = new DbClient(db, isMemory ? null : dbPath);
   client.exec('PRAGMA foreign_keys = ON;');
   client.exec(SCHEMA_SQL);
+
+  // Additive column migrations for existing databases
+  const cols = client.all<{ name: string }>('PRAGMA table_info(store_settings)');
+  const colNames = new Set(cols.map((c) => c.name));
+  if (cols.length > 0 && !colNames.has('store_map_url')) {
+    client.exec(
+      "ALTER TABLE store_settings ADD COLUMN store_map_url TEXT NOT NULL DEFAULT 'https://maps.app.goo.gl/RcdFYV2JjrTtXaC36';",
+    );
+  }
+  if (cols.length > 0 && !colNames.has('store_facebook_url')) {
+    client.exec(
+      "ALTER TABLE store_settings ADD COLUMN store_facebook_url TEXT NOT NULL DEFAULT 'https://www.facebook.com/profile.php?id=100075855163757';",
+    );
+  }
+
   return client;
 }

@@ -77,6 +77,8 @@ interface OrderDetailResponse {
     store_address: string;
     store_phone: string;
     store_whatsapp: string;
+    store_map_url?: string;
+    store_facebook_url?: string;
     owner_name: string;
     owner_email: string;
     owner_phone: string;
@@ -247,9 +249,20 @@ export const OrderTrackingPage: React.FC<{
           </div>
           <div className="text-lg font-bold text-stone-900 mt-1">{order.delivery_status}</div>
           <div className="text-xs text-stone-500 mt-1">
-            {order.fulfilment_type === 'delivery'
-              ? `${order.delivery_address} (${order.delivery_postcode})`
-              : ownerContact.store_address}
+            {order.fulfilment_type === 'delivery' ? (
+              `${order.delivery_address} (${order.delivery_postcode})`
+            ) : ownerContact.store_map_url ? (
+              <a
+                href={ownerContact.store_map_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-emerald-700 underline hover:text-emerald-900"
+              >
+                {ownerContact.store_address}
+              </a>
+            ) : (
+              ownerContact.store_address
+            )}
           </div>
         </div>
       </div>

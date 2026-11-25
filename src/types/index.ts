@@ -14,6 +14,8 @@ export interface StoreInfo {
   storeAddress: string;
   storePhone: string;
   storeWhatsapp: string;
+  storeMapUrl: string;
+  storeFacebookUrl: string;
   ownerName: string;
   ownerEmail: string;
   ownerPhone: string;

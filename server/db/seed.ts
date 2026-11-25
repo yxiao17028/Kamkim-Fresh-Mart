@@ -225,13 +225,15 @@ export function seedDatabase(db: DbClient): void {
   db.transaction(() => {
     db.run(
       `INSERT INTO store_settings
-       (id, store_name, store_address, store_phone, store_whatsapp, owner_name, owner_email, owner_phone, operating_hours_json, slots_json, updated_at)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, store_name, store_address, store_phone, store_whatsapp, store_map_url, store_facebook_url, owner_name, owner_email, owner_phone, operating_hours_json, slots_json, updated_at)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         'KamKim Fresh Mart',
         'No. 28, Jalan SL 1/2, Bandar Sungai Long, 43000 Kajang, Selangor, Malaysia',
         '014-9314390',
         '014-9314390',
+        'https://maps.app.goo.gl/RcdFYV2JjrTtXaC36',
+        'https://www.facebook.com/profile.php?id=100075855163757',
         'Mr. Kam (Owner)',
         'kamkim131414@gmail.com',
         '014-9314390',
