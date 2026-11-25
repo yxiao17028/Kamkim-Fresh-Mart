@@ -167,7 +167,8 @@ export const StorefrontApp: React.FC = () => {
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [inStockOnly, setInStockOnly] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(48);
+  const PAGE_SIZE = 30;
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
@@ -281,9 +282,26 @@ export const StorefrontApp: React.FC = () => {
     );
   };
 
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const pageProducts = filteredProducts.slice(pageStart, pageStart + PAGE_SIZE);
+
+  const pageNumbers = useMemo(() => {
+    const nums = new Set<number>([1, totalPages, safePage - 1, safePage, safePage + 1]);
+    return Array.from(nums)
+      .filter((n) => n >= 1 && n <= totalPages)
+      .sort((a, b) => a - b);
+  }, [safePage, totalPages]);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(totalPages, page)));
+    document.getElementById('catalogue')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   const selectCategoryAndScroll = (cat: string) => {
     setSelectedCategory(cat);
-    setVisibleCount(48);
+    setCurrentPage(1);
     document.getElementById('catalogue')?.scrollIntoView({ behavior: 'smooth' });
   };
 
@@ -410,7 +428,7 @@ export const StorefrontApp: React.FC = () => {
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
-                setVisibleCount(48);
+                setCurrentPage(1);
                 if (activeTab !== 'shop') setActiveTab('shop');
               }}
               placeholder={t.searchPlaceholder}
@@ -716,7 +734,7 @@ export const StorefrontApp: React.FC = () => {
                       value={selectedCategory}
                       onChange={(e) => {
                         setSelectedCategory(e.target.value);
-                        setVisibleCount(48);
+                        setCurrentPage(1);
                       }}
                       className="px-2.5 sm:px-3 py-1.5 rounded-xl border border-stone-200 bg-white font-medium text-stone-700 max-w-[160px] sm:max-w-none"
                     >
@@ -733,7 +751,10 @@ export const StorefrontApp: React.FC = () => {
                       <input
                         type="checkbox"
                         checked={inStockOnly}
-                        onChange={(e) => setInStockOnly(e.target.checked)}
+                        onChange={(e) => {
+                          setInStockOnly(e.target.checked);
+                          setCurrentPage(1);
+                        }}
                         className="rounded border-stone-300 text-[#075E40]"
                       />
                       {t.inStockOnly}
@@ -748,21 +769,21 @@ export const StorefrontApp: React.FC = () => {
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
-                      setVisibleCount(48);
+                      setCurrentPage(1);
                     }}
                     placeholder={t.searchPlaceholder}
                     className="w-full pl-11 pr-4 py-3 rounded-2xl border border-stone-200 bg-white text-sm shadow-sm focus:border-[#075E40] outline-none"
                   />
                 </div>
 
-                {/* Responsive Product Grid: 2 cols Phone (Figure 2), 3 cols Tablet, 4 cols Desktop */}
+                {/* Responsive Product Grid: 2 cols Phone (Figure 2), 3 cols Tablet, 4 cols Desktop (30 per page) */}
                 {filteredProducts.length === 0 ? (
                   <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center text-sm text-stone-500">
                     No matching products found.
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
-                    {filteredProducts.slice(0, visibleCount).map((product) => {
+                    {pageProducts.map((product) => {
                       const localName = getLocalizedName(product, lang);
                       const inCart = cart.find((c) => c.product.id === product.id)?.quantity || 0;
                       return (
@@ -835,17 +856,53 @@ export const StorefrontApp: React.FC = () => {
                   </div>
                 )}
 
-                {filteredProducts.length > visibleCount && (
-                  <div className="flex flex-col items-center gap-2 pt-3">
+                {filteredProducts.length > 0 && (
+                  <div className="flex flex-col items-center gap-3 pt-4">
                     <div className="text-xs text-stone-500">
-                      Showing {Math.min(visibleCount, filteredProducts.length)} of {filteredProducts.length}
+                      {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filteredProducts.length)} / {filteredProducts.length} · Page {safePage} / {totalPages}
                     </div>
-                    <button
-                      onClick={() => setVisibleCount((c) => c + 48)}
-                      className="px-6 py-2.5 rounded-full bg-stone-900 hover:bg-stone-800 text-white text-sm font-semibold"
-                    >
-                      Load More
-                    </button>
+                    {totalPages > 1 && (
+                      <div className="flex flex-wrap items-center justify-center gap-1.5">
+                        <button
+                          type="button"
+                          disabled={safePage <= 1}
+                          onClick={() => goToPage(safePage - 1)}
+                          className="px-3 py-1.5 rounded-full border border-stone-200 bg-white text-xs font-semibold text-stone-700 hover:bg-stone-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          ←
+                        </button>
+                        {pageNumbers.map((num, idx) => {
+                          const prevNum = pageNumbers[idx - 1];
+                          const showEllipsis = prevNum !== undefined && num - prevNum > 1;
+                          return (
+                            <React.Fragment key={num}>
+                              {showEllipsis && (
+                                <span className="px-1.5 text-xs text-stone-400">…</span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => goToPage(num)}
+                                className={`min-w-[34px] h-[34px] px-2.5 rounded-full text-xs font-bold transition ${
+                                  num === safePage
+                                    ? 'bg-[#075E40] text-white shadow-sm'
+                                    : 'border border-stone-200 bg-white text-stone-700 hover:bg-stone-100'
+                                }`}
+                              >
+                                {num}
+                              </button>
+                            </React.Fragment>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          disabled={safePage >= totalPages}
+                          onClick={() => goToPage(safePage + 1)}
+                          className="px-3 py-1.5 rounded-full border border-stone-200 bg-white text-xs font-semibold text-stone-700 hover:bg-stone-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          →
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </section>
