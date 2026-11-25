@@ -406,10 +406,10 @@ export const StorefrontApp: React.FC = () => {
       <main className="flex-1">
         {activeTab === 'shop' && (
           <>
-            {/* Figure 1: Deep Forest Green Split Hero Banner */}
-            <section className="text-white overflow-hidden bg-[#075E40] md:bg-[linear-gradient(to_right,#075E40_50%,#EDE1CF_50%)]">
+            {/* Hero Split Banner: height matches the natural height of hero-bag.jpg so full image displays without cropping */}
+            <section className="text-white overflow-hidden bg-[#075E40] md:bg-[linear-gradient(to_right,#075E40_50%,#FFFFFF_50%)]">
               <div className="max-w-7xl mx-auto grid md:grid-cols-2 items-stretch">
-                <div className="px-6 py-12 md:py-20 lg:py-24 lg:px-10 bg-[#075E40] flex flex-col justify-center space-y-5">
+                <div className="px-6 py-12 md:py-16 lg:px-10 bg-[#075E40] flex flex-col justify-center space-y-5">
                   <div className="text-[11px] font-bold tracking-widest uppercase text-amber-300">
                     {t.heroEyebrow}
                   </div>
@@ -428,17 +428,17 @@ export const StorefrontApp: React.FC = () => {
                     </a>
                   </div>
                 </div>
-                <div className="w-full aspect-[4/3] md:min-h-[440px] lg:min-h-[480px] flex items-center justify-center bg-gradient-to-b from-[#EFE7D5] to-[#E5D5BE] overflow-hidden">
+                <div className="w-full bg-white flex items-center justify-center">
                   <img
                     src="/images/hero-bag.jpg"
                     alt="KamKim Fresh Mart Groceries"
-                    className="w-full h-full object-contain object-center"
+                    className="w-full h-auto block"
                   />
                 </div>
               </div>
             </section>
 
-            {/* Figure 1: 4-Column Feature Strip */}
+            {/* 4-Column Feature Strip */}
             <section className="bg-white border-b border-stone-200">
               <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-stone-200">
                 {[
@@ -459,48 +459,7 @@ export const StorefrontApp: React.FC = () => {
             </section>
 
             <div className="max-w-7xl mx-auto px-4 py-8 space-y-10">
-              {/* Figure 2: 2-Column Editorial Feature Cards */}
-              <section className="grid md:grid-cols-2 gap-6">
-                <div
-                  onClick={() => setActiveTab('about')}
-                  className="rounded-2xl overflow-hidden border border-emerald-100 bg-[#EDF6F0] shadow-sm hover:shadow-md transition cursor-pointer flex flex-col"
-                >
-                  <div className="h-56 sm:h-64 bg-stone-200 overflow-hidden">
-                    <img
-                      src="/images/card-store.jpg"
-                      alt="KamKim Fresh Mart Sungai Long Store"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="p-6 space-y-1.5">
-                    <div className="text-[11px] font-bold tracking-wider uppercase text-emerald-800">{t.meetKicker}</div>
-                    <h2 className="text-xl font-extrabold text-stone-900">{t.meetTitle}</h2>
-                    <p className="text-sm text-stone-600">{t.meetDesc}</p>
-                    <div className="pt-2 text-sm font-bold text-[#075E40]">{t.meetCta}</div>
-                  </div>
-                </div>
-
-                <div
-                  onClick={() => selectCategoryAndScroll('All')}
-                  className="rounded-2xl overflow-hidden border border-amber-100 bg-[#FDF5E6] shadow-sm hover:shadow-md transition cursor-pointer flex flex-col"
-                >
-                  <div className="h-56 sm:h-64 bg-stone-200 overflow-hidden">
-                    <img
-                      src="/images/card-essentials.jpg"
-                      alt="Everyday Malaysian Kitchen Staples"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="p-6 space-y-1.5">
-                    <div className="text-[11px] font-bold tracking-wider uppercase text-amber-800">{t.valueKicker}</div>
-                    <h2 className="text-xl font-extrabold text-stone-900">{t.valueTitle}</h2>
-                    <p className="text-sm text-stone-600">{t.valueDesc}</p>
-                    <div className="pt-2 text-sm font-bold text-amber-900">{t.valueCta}</div>
-                  </div>
-                </div>
-              </section>
-
-              {/* Figure 2: Shop by Category with Photos */}
+              {/* Shop by Category with Photos */}
               {categoryCards.length > 0 && (
                 <section className="space-y-4">
                   <div className="flex items-center justify-between">
