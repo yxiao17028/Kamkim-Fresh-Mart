@@ -33,7 +33,7 @@ describe('KamKim Fresh Mart SRS v1.3 End-to-End Acceptance Tests', () => {
     const badPass = await request(app).post('/api/admin/auth/login').send({ username: 'owner', password: 'wrong' });
     expect(badPass.status).toBe(401);
 
-    const staffCookies = await loginAdmin('staff', 'kamkim-staff-2026');
+    const staffCookies = await loginAdmin('staff', 'kk1314');
     const staffOrders = await request(app).get('/api/admin/orders').set('Cookie', staffCookies);
     expect(staffOrders.status).toBe(200);
 
@@ -47,7 +47,7 @@ describe('KamKim Fresh Mart SRS v1.3 End-to-End Acceptance Tests', () => {
       .send({ pospalOutageMode: true });
     expect(settingsBlocked.status).toBe(403);
 
-    const ownerCookies = await loginAdmin('owner', 'kamkim-owner-2026');
+    const ownerCookies = await loginAdmin('owner', 'kamkim1314');
     const ownerStaff = await request(app).get('/api/admin/staff').set('Cookie', ownerCookies);
     expect(ownerStaff.status).toBe(200);
   });
@@ -126,7 +126,7 @@ describe('KamKim Fresh Mart SRS v1.3 End-to-End Acceptance Tests', () => {
     const cancelRes = await request(app).post(`/api/orders/${orderCode}/cancel`).send({});
     expect(cancelRes.status).toBe(404);
 
-    const ownerCookies = await loginAdmin('owner', 'kamkim-owner-2026');
+    const ownerCookies = await loginAdmin('owner', 'kamkim1314');
     const adminCancelRes = await request(app)
       .post(`/api/admin/orders/${orderRes.body.orderId}/status`)
       .set('Cookie', ownerCookies)
@@ -188,7 +188,7 @@ describe('KamKim Fresh Mart SRS v1.3 End-to-End Acceptance Tests', () => {
     expect(detail.body.order.order_status).toBe('Preparing');
     expect(detail.body.order.payment_status).toBe('Unpaid');
 
-    const staffCookies = await loginAdmin('staff', 'kamkim-staff-2026');
+    const staffCookies = await loginAdmin('staff', 'kk1314');
     // Cannot mark Completed before recording Pay at Store payment
     const blockComplete = await request(app)
       .post(`/api/admin/orders/${pickupRes.body.orderId}/status`)
@@ -204,7 +204,7 @@ describe('KamKim Fresh Mart SRS v1.3 End-to-End Acceptance Tests', () => {
   });
 
   it('AT-03, AT-05, AT-06: POSPAL inbound change preserves website media, outage queues retries, conflict preserves order deltas', async () => {
-    const ownerCookies = await loginAdmin('owner', 'kamkim-owner-2026');
+    const ownerCookies = await loginAdmin('owner', 'kamkim1314');
     const beforeProd = db.get<{ image_url: string; extended_desc_en: string }>(
       'SELECT image_url, extended_desc_en FROM products WHERE id = 1',
     )!;
@@ -275,7 +275,7 @@ describe('KamKim Fresh Mart SRS v1.3 End-to-End Acceptance Tests', () => {
   });
 
   it('AT-10, AT-11, AT-12, AT-18: Scheduled slot wait, expired quote top-up gate, idempotent booking, and coordinate fallback', async () => {
-    const ownerCookies = await loginAdmin('owner', 'kamkim-owner-2026');
+    const ownerCookies = await loginAdmin('owner', 'kamkim1314');
     const infoRes = await request(app).get('/api/store/info');
     // Pick the farthest future slot (tomorrow)
     const futureSlot = infoRes.body.availableSlots[infoRes.body.availableSlots.length - 1];
@@ -368,8 +368,8 @@ describe('KamKim Fresh Mart SRS v1.3 End-to-End Acceptance Tests', () => {
   });
 
   it('AT-13 & AT-16: Merchant item-level gateway refund succeeds without auto-restock; Staff blocked unless authorised; failure stays Failed; net report updates', async () => {
-    const staffCookies = await loginAdmin('staff', 'kamkim-staff-2026');
-    const ownerCookies = await loginAdmin('owner', 'kamkim-owner-2026');
+    const staffCookies = await loginAdmin('staff', 'kk1314');
+    const ownerCookies = await loginAdmin('owner', 'kamkim1314');
 
     const orderRes = await request(app)
       .post('/api/orders')

@@ -90,14 +90,8 @@ export const AdminLoginPage: React.FC<{ onSuccess: (admin: AdminUser) => void }>
           </button>
         </form>
 
-        <div className="rounded-xl bg-stone-950 border border-stone-800 p-3.5 text-xs text-stone-400 space-y-1">
-          <div className="font-semibold text-stone-300">Default Sandbox Credentials (Two-Role RBAC):</div>
-          <div>
-            Owner (Full + Refunds + Staff): <code>owner</code> / <code>kamkim-owner-2026</code>
-          </div>
-          <div>
-            Staff (Fulfilment + Exceptions only): <code>staff</code> / <code>kamkim-staff-2026</code>
-          </div>
+        <div className="rounded-xl bg-stone-950 border border-stone-800 p-3.5 text-xs text-stone-400">
+          Authorised Owner &amp; Staff accounts only. Contact the Store Owner if you need access or a password reset.
         </div>
       </div>
     </div>

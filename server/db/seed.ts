@@ -242,15 +242,17 @@ export function seedDatabase(db: DbClient): void {
     );
 
     // Two-role Admin model (Owner + Staff)
+    const ownerPass = process.env.OWNER_INITIAL_PASSWORD || 'kamkim1314';
+    const staffPass = process.env.STAFF_INITIAL_PASSWORD || 'kk1314';
     db.run(
       `INSERT INTO admin_users (username, display_name, email, role, can_process_refunds, password_hash, is_active, created_at)
        VALUES (?, ?, ?, 'owner', 1, ?, 1, ?)`,
-      ['owner', 'Mr. Kam (Owner)', 'owner@kamkimfresh.my', hashPassword('kamkim-owner-2026'), now],
+      ['owner', 'Mr. Kam (Owner)', 'owner@kamkimfresh.my', hashPassword(ownerPass), now],
     );
     db.run(
       `INSERT INTO admin_users (username, display_name, email, role, can_process_refunds, password_hash, is_active, created_at)
        VALUES (?, ?, ?, 'staff', 0, ?, 1, ?)`,
-      ['staff', 'Mei Ling (Store Staff)', 'staff@kamkimfresh.my', hashPassword('kamkim-staff-2026'), now],
+      ['staff', 'Mei Ling (Store Staff)', 'staff@kamkimfresh.my', hashPassword(staffPass), now],
     );
 
     // Skip seeding demo products & mock POSPAL items when running in live POSPAL mode
