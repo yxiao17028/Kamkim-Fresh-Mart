@@ -730,13 +730,8 @@ export async function flushPospalOutboxLive(
   for (let i = 0; i < barcodeEntries.length; i += 100) {
     const chunk = barcodeEntries.slice(i, i + 100);
     const batchItems = chunk.map(([barcode, grp]) => ({ barcode, changeStock: grp.totalDelta }));
-    const batchReqId =
-      chunk.length === 1 && chunk[0][1].jobs.length === 1
-        ? chunk[0][1].jobs[0].idempotency_key
-        : crypto
-            .createHash('sha256')
-            .update(chunk.flatMap(([, g]) => g.jobs.map((j) => j.idempotency_key)).join('|'))
-            .digest('hex');
+    // POSPAL V3 requires a unique X-Request-Id for every HTTP attempt (even retries after 4021/errors)
+    const batchReqId = crypto.randomUUID();
 
     try {
       const batchRes = await pushPospalV3StockBatchAdjust(batchItems, batchReqId, config);
@@ -805,7 +800,7 @@ export async function flushPospalOutboxLive(
           name: payload.name,
           sellPriceYuan: typeof payload.basePriceSen === 'number' ? payload.basePriceSen / 100 : undefined,
         },
-        job.idempotency_key,
+        crypto.randomUUID(),
         config,
       );
       db.run(`UPDATE pospal_outbox SET status = 'Confirmed', attempts = ?, last_error = '', updated_at = ? WHERE id = ?`, [
