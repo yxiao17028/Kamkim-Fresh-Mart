@@ -12,6 +12,9 @@ export const TRANSLATIONS: Record<
     navShop: string;
     navAbout: string;
     navOrders: string;
+    navHome: string;
+    navOrdersShort: string;
+    navAccount: string;
     featShopLocal: string;
     featNoMin: string;
     featDelivery: string;
@@ -63,6 +66,9 @@ export const TRANSLATIONS: Record<
     navShop: 'Shop',
     navAbout: 'About Us',
     navOrders: 'My Orders',
+    navHome: 'Home',
+    navOrdersShort: 'Orders',
+    navAccount: 'Account',
     featShopLocal: 'Shop Local',
     featNoMin: 'No Minimum Order',
     featDelivery: 'Delivery',
@@ -114,6 +120,9 @@ export const TRANSLATIONS: Record<
     navShop: '选购商品',
     navAbout: '关于我们',
     navOrders: '我的订单',
+    navHome: '首页',
+    navOrdersShort: '订单',
+    navAccount: '账户',
     featShopLocal: '本地好店',
     featNoMin: '无最低消费',
     featDelivery: 'Lalamove 配送',
@@ -164,6 +173,9 @@ export const TRANSLATIONS: Record<
     navShop: 'Kedai',
     navAbout: 'Tentang Kami',
     navOrders: 'Pesanan Saya',
+    navHome: 'Utama',
+    navOrdersShort: 'Pesanan',
+    navAccount: 'Akaun',
     featShopLocal: 'Kedai Tempatan',
     featNoMin: 'Tiada Had Minimum',
     featDelivery: 'Penghantaran',

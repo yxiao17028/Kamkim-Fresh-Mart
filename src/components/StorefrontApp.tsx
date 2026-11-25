@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Globe,
+  Home,
+  LayoutGrid,
+  Menu,
   Minus,
+  Package,
   PackageSearch,
   Plus,
   Search,
@@ -158,6 +162,7 @@ export const StorefrontApp: React.FC = () => {
   >([]);
 
   const [activeTab, setActiveTab] = useState<'shop' | 'about' | 'orders' | 'track'>('shop');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -342,28 +347,160 @@ export const StorefrontApp: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-stone-50 text-stone-900">
+    <div className="min-h-screen flex flex-col bg-stone-50 text-stone-900 pb-16 md:pb-0">
       {/* Slim SRS Policy Bar */}
-      <div className="bg-emerald-950 text-emerald-100 text-[11px] py-1.5 px-4 text-center">
+      <div className="bg-emerald-950 text-emerald-100 text-[10px] sm:text-[11px] py-1.5 px-3 sm:px-4 text-center">
         <span>{t.noCancelBanner}</span>
       </div>
 
-      {/* Top Navbar (Matching Figure 1) */}
+      {/* Responsive Sticky Header: Mobile (Figure 1) & Tablet/Desktop */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-stone-200">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        {/* Mobile Header (< md) */}
+        <div className="md:hidden px-4 pt-2.5 pb-3 space-y-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <button
+                type="button"
+                aria-label="Toggle Menu"
+                onClick={() => setMobileMenuOpen((v) => !v)}
+                className="p-1.5 -ml-1.5 rounded-lg text-stone-700 hover:bg-stone-100"
+              >
+                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+              <div
+                className="min-w-0 cursor-pointer"
+                onClick={() => {
+                  setActiveTab('shop');
+                  setMobileMenuOpen(false);
+                }}
+              >
+                <div className="font-extrabold text-base tracking-tight text-[#075E40] leading-none truncate">
+                  KamKim Fresh Mart
+                </div>
+                <div className="text-[11px] text-stone-500 mt-0.5 truncate">{t.brandTagline}</div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setCartOpen(true)}
+              aria-label="Open Basket"
+              className="relative p-2 rounded-xl text-[#075E40] hover:bg-emerald-50"
+            >
+              <ShoppingCart className="w-5 h-5" />
+              {cartCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#075E40] text-white text-[10px] font-extrabold flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Mobile Top Pill Search Bar (Figure 1) */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              setActiveTab('shop');
+              setTimeout(() => document.getElementById('catalogue')?.scrollIntoView({ behavior: 'smooth' }), 50);
+            }}
+            className="relative"
+          >
+            <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-2.5" />
+            <input
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setVisibleCount(48);
+                if (activeTab !== 'shop') setActiveTab('shop');
+              }}
+              placeholder={t.searchPlaceholder}
+              className="w-full pl-10 pr-4 py-2 rounded-full border border-stone-200 bg-stone-50 text-sm focus:bg-white focus:border-[#075E40] outline-none"
+            />
+          </form>
+
+          {mobileMenuOpen && (
+            <div className="pt-2 border-t border-stone-200 space-y-3">
+              <div className="grid grid-cols-3 gap-2 text-xs font-semibold">
+                {[
+                  { id: 'shop', label: t.navShop },
+                  { id: 'about', label: t.navAbout },
+                  { id: 'orders', label: customer ? t.navOrders : t.trackOrder },
+                ].map((nav) => (
+                  <button
+                    key={nav.id}
+                    onClick={() => {
+                      setActiveTab(nav.id as typeof activeTab);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`py-2 px-2 rounded-xl text-center transition ${
+                      activeTab === nav.id
+                        ? 'bg-[#075E40] text-white'
+                        : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                    }`}
+                  >
+                    {nav.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center border border-stone-200 rounded-xl overflow-hidden bg-stone-50 text-xs font-semibold">
+                  <span className="px-2 text-stone-400">
+                    <Globe className="w-3.5 h-3.5" />
+                  </span>
+                  {(['en', 'zh-CN', 'ms-MY'] as Lang[]).map((code) => (
+                    <button
+                      key={code}
+                      onClick={() => setLang(code)}
+                      className={`px-2.5 py-1.5 ${lang === code ? 'bg-[#075E40] text-white' : 'text-stone-600'}`}
+                    >
+                      {code === 'en' ? 'EN' : code === 'zh-CN' ? '中文' : 'BM'}
+                    </button>
+                  ))}
+                </div>
+
+                {customer ? (
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="px-3 py-1.5 rounded-xl border border-stone-200 text-xs font-semibold text-stone-700"
+                  >
+                    {customer.name} · {t.logout}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setAuthMode('login');
+                      setAuthModalOpen(true);
+                      setMobileMenuOpen(false);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#075E40] text-white text-xs font-semibold"
+                  >
+                    <User className="w-3.5 h-3.5" /> {t.login}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Tablet & Desktop Header (md+) */}
+        <div className="hidden md:flex max-w-7xl mx-auto px-4 py-3 flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('shop')}>
             <div className="w-10 h-10 rounded-xl bg-[#075E40] text-white flex items-center justify-center font-extrabold text-base shadow-sm">
               KK
             </div>
             <div>
-              <div className="font-extrabold text-base sm:text-lg tracking-tight text-stone-900 leading-none">
+              <div className="font-extrabold text-base lg:text-lg tracking-tight text-stone-900 leading-none">
                 KamKim Fresh Mart
               </div>
               <div className="text-[11px] text-stone-500 mt-0.5">{t.brandTagline}</div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex flex-wrap items-center gap-2 lg:gap-3">
             <nav className="flex items-center gap-1 text-sm font-medium">
               {[
                 { id: 'shop', label: t.navShop },
@@ -403,7 +540,7 @@ export const StorefrontApp: React.FC = () => {
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setActiveTab('orders')}
-                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 text-xs font-semibold text-stone-800"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 text-xs font-semibold text-stone-800"
                 >
                   <User className="w-3.5 h-3.5 text-[#075E40]" /> {customer.name}
                 </button>
@@ -431,7 +568,7 @@ export const StorefrontApp: React.FC = () => {
               <ShoppingCart className="w-4 h-4" />
               {cartCount > 0 && (
                 <>
-                  <span className="hidden sm:inline">{formatRM(cartSubtotalSen)}</span>
+                  <span>{formatRM(cartSubtotalSen)}</span>
                   <span className="px-1.5 py-0.5 rounded-full bg-amber-400 text-stone-950 text-[11px] font-extrabold">
                     {cartCount}
                   </span>
@@ -454,29 +591,29 @@ export const StorefrontApp: React.FC = () => {
       <main className="flex-1">
         {activeTab === 'shop' && (
           <>
-            {/* Hero Split Banner: full-bleed green banner expanding left, compact full-height photo anchored flush right */}
+            {/* Hero Split Banner: mobile stacks photo on top + full-width CTA (Figure 1); tablet/desktop splits side-by-side */}
             <section className="w-full bg-[#075E40] text-white overflow-hidden">
               <div className="flex flex-col md:flex-row items-stretch">
-                <div className="flex-1 px-6 py-10 md:py-12 md:pl-[max(2rem,calc((100vw-80rem)/2+1rem))] md:pr-10 flex flex-col justify-center space-y-5">
-                  <div className="text-[11px] font-bold tracking-widest uppercase text-amber-300">
+                <div className="order-2 md:order-1 flex-1 px-5 py-6 md:py-10 lg:py-12 md:pl-[max(2rem,calc((100vw-80rem)/2+1rem))] md:pr-8 lg:pr-10 flex flex-col justify-center space-y-3 md:space-y-5">
+                  <div className="hidden sm:block text-[11px] font-bold tracking-widest uppercase text-amber-300">
                     {t.heroEyebrow}
                   </div>
-                  <h1 className="text-3xl md:text-4xl lg:text-[42px] font-extrabold tracking-tight leading-tight max-w-xl">
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-[42px] font-extrabold tracking-tight leading-tight max-w-xl">
                     {t.heroTitle}
                   </h1>
                   <p className="text-emerald-100/90 text-sm md:text-base max-w-lg leading-relaxed">
                     {t.heroSubtitle}
                   </p>
-                  <div className="pt-2">
+                  <div className="pt-1 md:pt-2">
                     <a
                       href="#catalogue"
-                      className="inline-block px-6 py-3 rounded-full bg-amber-400 hover:bg-amber-300 text-stone-950 font-bold text-sm shadow-sm transition"
+                      className="block md:inline-block w-full md:w-auto text-center px-6 py-3 rounded-xl md:rounded-full bg-amber-400 hover:bg-amber-300 text-stone-950 font-bold text-sm shadow-sm transition"
                     >
                       {t.shopNow}
                     </a>
                   </div>
                 </div>
-                <div className="w-full md:w-[52%] md:max-w-[760px] shrink-0 bg-[#075E40] flex items-center justify-end">
+                <div className="order-1 md:order-2 w-full md:w-[50%] lg:w-[52%] md:max-w-[760px] shrink-0 bg-[#075E40] flex items-center justify-end">
                   <img
                     src="/images/hero-bag.jpg"
                     alt="KamKim Fresh Mart Groceries"
@@ -486,32 +623,39 @@ export const StorefrontApp: React.FC = () => {
               </div>
             </section>
 
-            {/* 4-Column Feature Strip */}
+            {/* Feature Strip: 3 crisp items in 1 row on mobile (Figure 1), 4 columns on tablet & desktop */}
             <section className="bg-white border-b border-stone-200">
-              <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-stone-200">
+              <div className="max-w-7xl mx-auto grid grid-cols-3 md:grid-cols-4 divide-x divide-stone-200">
                 {[
-                  { icon: Store, label: t.featShopLocal },
-                  { icon: Wallet, label: t.featNoMin },
-                  { icon: Truck, label: t.featDelivery },
-                  { icon: ShoppingBag, label: t.featFreePickup },
+                  { icon: Store, label: t.featShopLocal, mobileHide: true },
+                  { icon: Wallet, label: t.featNoMin, mobileHide: false },
+                  { icon: Truck, label: t.featDelivery, mobileHide: false },
+                  { icon: ShoppingBag, label: t.featFreePickup, mobileHide: false },
                 ].map((feat) => {
                   const Icon = feat.icon;
                   return (
-                    <div key={feat.label} className="py-4 px-3 flex flex-col items-center justify-center gap-1.5 text-center">
+                    <div
+                      key={feat.label}
+                      className={`py-3 sm:py-4 px-2 sm:px-3 flex-col items-center justify-center gap-1 sm:gap-1.5 text-center ${
+                        feat.mobileHide ? 'hidden md:flex' : 'flex'
+                      }`}
+                    >
                       <Icon className="w-5 h-5 text-[#075E40]" />
-                      <span className="text-xs font-semibold text-stone-700">{feat.label}</span>
+                      <span className="text-[11px] sm:text-xs font-semibold text-stone-700 leading-tight">
+                        {feat.label}
+                      </span>
                     </div>
                   );
                 })}
               </div>
             </section>
 
-            <div className="max-w-7xl mx-auto px-4 py-8 space-y-10">
-              {/* Shop by Category with Photos */}
+            <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8 space-y-8 sm:space-y-10">
+              {/* Shop by Category: circular 4-up row on mobile (Figure 2), 6-up cards on tablet/desktop */}
               {categoryCards.length > 0 && (
-                <section className="space-y-4">
+                <section className="space-y-3 sm:space-y-4">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-extrabold text-stone-900">{t.shopByCategory}</h2>
+                    <h2 className="text-lg sm:text-xl font-extrabold text-stone-900">{t.shopByCategory}</h2>
                     {categoryCards.length > 6 && (
                       <button
                         onClick={() => setShowAllCategories(!showAllCategories)}
@@ -522,18 +666,30 @@ export const StorefrontApp: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                  <div
+                    className={
+                      showAllCategories
+                        ? 'grid grid-cols-4 sm:grid-cols-4 md:grid-cols-6 gap-3 md:gap-4'
+                        : 'grid grid-flow-col auto-cols-[calc((100%-2.25rem)/4)] overflow-x-auto pb-1 gap-3 md:grid-flow-row md:grid-cols-6 md:overflow-visible md:pb-0 md:gap-4'
+                    }
+                  >
                     {displayedCategoryCards.map((cat) => {
                       const active = selectedCategory === cat.rawName;
                       return (
                         <button
                           key={cat.rawName}
                           onClick={() => selectCategoryAndScroll(active ? 'All' : cat.rawName)}
-                          className={`group rounded-2xl bg-white border p-3 text-center transition shadow-sm hover:shadow-md ${
-                            active ? 'border-[#075E40] ring-2 ring-[#075E40]/20' : 'border-stone-200'
+                          className={`group flex flex-col items-center text-center transition rounded-xl md:rounded-2xl md:bg-white md:border md:p-3 md:shadow-sm md:hover:shadow-md ${
+                            active
+                              ? 'md:border-[#075E40] md:ring-2 md:ring-[#075E40]/20'
+                              : 'md:border-stone-200'
                           }`}
                         >
-                          <div className="aspect-square rounded-xl bg-white overflow-hidden flex items-center justify-center mb-2.5">
+                          <div
+                            className={`w-full aspect-square rounded-full md:rounded-xl bg-white overflow-hidden flex items-center justify-center mb-1.5 md:mb-2.5 border md:border-0 p-1 md:p-0 ${
+                              active ? 'border-[#075E40] ring-2 ring-[#075E40]/25 md:ring-0' : 'border-stone-200'
+                            }`}
+                          >
                             <img
                               loading="lazy"
                               src={cat.img}
@@ -541,7 +697,9 @@ export const StorefrontApp: React.FC = () => {
                               className="w-full h-full object-contain group-hover:scale-105 transition duration-200"
                             />
                           </div>
-                          <div className="text-xs font-bold text-stone-800 truncate">{cat.label}</div>
+                          <div className="w-full text-[11px] sm:text-xs font-semibold md:font-bold text-stone-800 truncate">
+                            {cat.label}
+                          </div>
                         </button>
                       );
                     })}
@@ -549,18 +707,18 @@ export const StorefrontApp: React.FC = () => {
                 </section>
               )}
 
-              {/* Figure 3: Explore Our Groceries */}
-              <section id="catalogue" className="space-y-4 pt-2">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="text-xl font-extrabold text-stone-900">{t.exploreTitle}</h2>
-                  <div className="flex flex-wrap items-center gap-3 text-xs">
+              {/* Explore Our Groceries: 2 cols on mobile (Figure 2), 3 cols on tablet, 4 cols on desktop */}
+              <section id="catalogue" className="space-y-4 pt-1 sm:pt-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+                  <h2 className="text-lg sm:text-xl font-extrabold text-stone-900">{t.exploreTitle}</h2>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
                     <select
                       value={selectedCategory}
                       onChange={(e) => {
                         setSelectedCategory(e.target.value);
                         setVisibleCount(48);
                       }}
-                      className="px-3 py-1.5 rounded-xl border border-stone-200 bg-white font-medium text-stone-700"
+                      className="px-2.5 sm:px-3 py-1.5 rounded-xl border border-stone-200 bg-white font-medium text-stone-700 max-w-[160px] sm:max-w-none"
                     >
                       <option value="All">
                         {t.allCategories} ({products.length})
@@ -583,8 +741,8 @@ export const StorefrontApp: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Wide Pill Search Bar (Figure 3) */}
-                <div className="relative">
+                {/* Desktop/Tablet Wide Pill Search Bar (hidden on mobile since Figure 1 shows top search bar) */}
+                <div className="hidden md:block relative">
                   <Search className="w-4 h-4 text-stone-400 absolute left-4 top-3.5" />
                   <input
                     value={searchQuery}
@@ -597,20 +755,20 @@ export const StorefrontApp: React.FC = () => {
                   />
                 </div>
 
-                {/* Clean 4-Column Product Grid (Figure 3) */}
+                {/* Responsive Product Grid: 2 cols Phone (Figure 2), 3 cols Tablet, 4 cols Desktop */}
                 {filteredProducts.length === 0 ? (
                   <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center text-sm text-stone-500">
                     No matching products found.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
                     {filteredProducts.slice(0, visibleCount).map((product) => {
                       const localName = getLocalizedName(product, lang);
                       const inCart = cart.find((c) => c.product.id === product.id)?.quantity || 0;
                       return (
                         <div
                           key={product.id}
-                          className="bg-white rounded-2xl border border-stone-200 p-3.5 shadow-sm hover:shadow-md transition flex flex-col justify-between gap-3"
+                          className="bg-white rounded-2xl border border-stone-200 p-2.5 sm:p-3.5 shadow-sm hover:shadow-md transition flex flex-col justify-between gap-2.5 sm:gap-3"
                         >
                           <div>
                             <div
@@ -815,6 +973,65 @@ export const StorefrontApp: React.FC = () => {
           </div>
         </div>
       </footer>
+
+      {/* Mobile Bottom Tab Bar (Figure 2) */}
+      <nav
+        aria-label="Mobile Navigation"
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-stone-200 grid grid-cols-4 py-1.5 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]"
+      >
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('shop');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-semibold ${
+            activeTab === 'shop' ? 'text-[#075E40]' : 'text-stone-500'
+          }`}
+        >
+          <Home className="w-5 h-5" />
+          <span>{t.navHome}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('shop');
+            setTimeout(() => document.getElementById('catalogue')?.scrollIntoView({ behavior: 'smooth' }), 50);
+          }}
+          className="flex flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-semibold text-stone-600 hover:text-[#075E40]"
+        >
+          <LayoutGrid className="w-5 h-5" />
+          <span>{t.navShop}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('orders')}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-semibold ${
+            activeTab === 'orders' || activeTab === 'track' ? 'text-[#075E40]' : 'text-stone-500'
+          }`}
+        >
+          <Package className="w-5 h-5" />
+          <span>{t.navOrdersShort}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (customer) {
+              setActiveTab('orders');
+            } else {
+              setAuthMode('login');
+              setAuthModalOpen(true);
+            }
+          }}
+          className="flex flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-semibold text-stone-500 hover:text-[#075E40]"
+        >
+          <User className="w-5 h-5" />
+          <span>{t.navAccount}</span>
+        </button>
+      </nav>
 
       {/* Product Detail Modal */}
       {selectedProduct && (
