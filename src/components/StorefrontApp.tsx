@@ -62,6 +62,30 @@ const CATEGORY_PRESETS: Record<
     img: '/images/cat-seasoning.jpg',
     label: { en: 'Seasoning', 'zh-CN': '调味料', 'ms-MY': 'Perasa' },
   },
+  'MEDICAL ,FACE MASK': {
+    img: '/images/cat-medical.jpg',
+    label: { en: 'Medical & Face Mask', 'zh-CN': '医疗与口罩', 'ms-MY': 'Perubatan & Pelitup Muka' },
+  },
+  文具用品: {
+    img: '/images/cat-stationery.jpg',
+    label: { en: 'Stationery', 'zh-CN': '文具用品', 'ms-MY': 'Alat Tulis' },
+  },
+  素食: {
+    img: '/images/cat-vegetarian.jpg',
+    label: { en: 'Vegetarian', 'zh-CN': '素食', 'ms-MY': 'Vegetarian' },
+  },
+  海鲜: {
+    img: '/images/cat-seafood.jpg',
+    label: { en: 'Seafood', 'zh-CN': '海鲜', 'ms-MY': 'Makanan Laut' },
+  },
+  '点心,包类': {
+    img: '/images/cat-dimsum.jpg',
+    label: { en: 'Dim Sum & Buns', 'zh-CN': '点心与包类', 'ms-MY': 'Dim Sum & Pau' },
+  },
+  方便包: {
+    img: '/images/cat-readymeal.jpg',
+    label: { en: 'Ready Meals', 'zh-CN': '方便包', 'ms-MY': 'Pek Sedia Dimakan' },
+  },
   'Beverages & Snacks': {
     img: '/images/cat-snacks.jpg',
     label: { en: 'Beverages & Snacks', 'zh-CN': '饮品零食', 'ms-MY': 'Minuman & Snek' },
