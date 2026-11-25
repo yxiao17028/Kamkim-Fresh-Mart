@@ -406,10 +406,10 @@ export const StorefrontApp: React.FC = () => {
       <main className="flex-1">
         {activeTab === 'shop' && (
           <>
-            {/* Hero Split Banner: height matches the natural height of hero-bag.jpg so full image displays without cropping */}
-            <section className="text-white overflow-hidden bg-[#075E40] md:bg-[linear-gradient(to_right,#075E40_50%,#FFFFFF_50%)]">
-              <div className="max-w-7xl mx-auto grid md:grid-cols-2 items-stretch">
-                <div className="px-6 py-12 md:py-16 lg:px-10 bg-[#075E40] flex flex-col justify-center space-y-5">
+            {/* Hero Split Banner: full-width emerald banner with compact full-bleed photo frame so 100% of image displays */}
+            <section className="w-full bg-[#075E40] text-white overflow-hidden">
+              <div className="max-w-7xl mx-auto px-6 lg:px-10 py-8 md:py-10 grid md:grid-cols-[1fr_auto] items-center gap-8 lg:gap-12">
+                <div className="flex flex-col justify-center space-y-5">
                   <div className="text-[11px] font-bold tracking-widest uppercase text-amber-300">
                     {t.heroEyebrow}
                   </div>
@@ -428,12 +428,14 @@ export const StorefrontApp: React.FC = () => {
                     </a>
                   </div>
                 </div>
-                <div className="w-full bg-white flex items-center justify-center">
-                  <img
-                    src="/images/hero-bag.jpg"
-                    alt="KamKim Fresh Mart Groceries"
-                    className="w-full h-auto block"
-                  />
+                <div className="flex justify-center md:justify-end">
+                  <div className="w-[260px] sm:w-[290px] md:w-[310px] lg:w-[330px] rounded-2xl overflow-hidden bg-white shadow-xl shrink-0">
+                    <img
+                      src="/images/hero-bag.jpg"
+                      alt="KamKim Fresh Mart Groceries"
+                      className="w-full h-auto block"
+                    />
+                  </div>
                 </div>
               </div>
             </section>
