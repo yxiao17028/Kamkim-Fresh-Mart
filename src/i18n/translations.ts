@@ -4,6 +4,7 @@ export const TRANSLATIONS: Record<
   Lang,
   {
     brandTagline: string;
+    heroEyebrow: string;
     heroTitle: string;
     heroSubtitle: string;
     shopNow: string;
@@ -11,6 +12,22 @@ export const TRANSLATIONS: Record<
     navShop: string;
     navAbout: string;
     navOrders: string;
+    featShopLocal: string;
+    featNoMin: string;
+    featDelivery: string;
+    featFreePickup: string;
+    meetKicker: string;
+    meetTitle: string;
+    meetDesc: string;
+    meetCta: string;
+    valueKicker: string;
+    valueTitle: string;
+    valueDesc: string;
+    valueCta: string;
+    shopByCategory: string;
+    viewAll: string;
+    showLess: string;
+    exploreTitle: string;
     searchPlaceholder: string;
     inStockOnly: string;
     allCategories: string;
@@ -34,18 +51,34 @@ export const TRANSLATIONS: Record<
     register: string;
     logout: string;
     stockLeft: string;
-    adminPortalLink: string;
   }
 > = {
   en: {
-    brandTagline: 'Sungai Long Neighbourhood Grocer',
-    heroTitle: 'Fresh Groceries in Sungai Long, Delivered or Ready for Pickup',
-    heroSubtitle: 'Fixed-unit packs synced with in-store stock. Delivery via Lalamove or free store pickup.',
-    shopNow: 'Shop Groceries',
+    brandTagline: 'Your Neighbourhood Grocer',
+    heroEyebrow: 'LOCAL STORE. EVERYDAY ESSENTIALS.',
+    heroTitle: 'Your Everyday Groceries, Closer to Home.',
+    heroSubtitle: 'More choices. Everyday value. Shop from your neighbourhood grocery store.',
+    shopNow: 'Shop Now →',
     trackOrder: 'Track Order',
     navShop: 'Shop',
     navAbout: 'About Us',
     navOrders: 'My Orders',
+    featShopLocal: 'Shop Local',
+    featNoMin: 'No Minimum Order',
+    featDelivery: 'Delivery',
+    featFreePickup: 'Free Pickup',
+    meetKicker: 'MEET KAMKIM',
+    meetTitle: 'Your Local Grocery Store',
+    meetDesc: 'Right here in Sungai Long, for your everyday needs.',
+    meetCta: 'Get to Know Us →',
+    valueKicker: 'EVERYDAY VALUE',
+    valueTitle: 'More for Your Daily Needs',
+    valueDesc: 'Discover essentials for your kitchen and home.',
+    valueCta: 'Explore Essentials →',
+    shopByCategory: 'Shop by Category',
+    viewAll: 'View All →',
+    showLess: 'Show Top 6',
+    exploreTitle: 'Explore Our Groceries',
     searchPlaceholder: 'Search products or barcode...',
     inStockOnly: 'In Stock Only',
     allCategories: 'All Categories',
@@ -65,23 +98,39 @@ export const TRANSLATIONS: Record<
     policyCheckbox:
       'I agree that submitted orders cannot be cancelled online and refund enquiries go directly to the Store Owner.',
     placeOrder: 'Place Order',
-    noCancelBanner: 'Note: Submitted orders cannot be cancelled online. Need help or refund enquiry? Contact the Store Owner.',
+    noCancelBanner: 'Note: Submitted orders cannot be cancelled online. Need help? Contact the Store Owner.',
     login: 'Sign In',
     register: 'Register',
     logout: 'Sign Out',
     stockLeft: 'left',
-    adminPortalLink: 'Staff / Owner Login',
   },
   'zh-CN': {
     brandTagline: '双溪龙社区生鲜杂货',
-    heroTitle: '双溪龙新鲜杂货，送货上门或到店自取',
-    heroSubtitle: '固定包装明码实价，库存实时同步门店。支持 Lalamove 配送或到店自取。',
-    shopNow: '开始选购',
+    heroEyebrow: '社区好店 · 每日所需',
+    heroTitle: '家门口的日常生鲜杂货，触手可及。',
+    heroSubtitle: '更多选择，每日实惠。在您身边的双溪龙社区杂货店轻松选购。',
+    shopNow: '立即选购 →',
     trackOrder: '查询订单',
     navShop: '选购商品',
     navAbout: '关于我们',
     navOrders: '我的订单',
-    searchPlaceholder: '搜索商品名、条码或分类...',
+    featShopLocal: '本地好店',
+    featNoMin: '无最低消费',
+    featDelivery: 'Lalamove 配送',
+    featFreePickup: '免费到店自取',
+    meetKicker: '认识 KAMKIM',
+    meetTitle: '您的社区日常杂货店',
+    meetDesc: '就在双溪龙，满足您每日居家生活所需。',
+    meetCta: '了解我们 →',
+    valueKicker: '每日超值',
+    valueTitle: '满足您更多的日常所需',
+    valueDesc: '精选厨房调味、生鲜食材与家居日用品。',
+    valueCta: '探索必需品 →',
+    shopByCategory: '按分类选购',
+    viewAll: '查看全部 →',
+    showLess: '收起部分',
+    exploreTitle: '浏览全部商品',
+    searchPlaceholder: '搜索商品名称或条码...',
     inStockOnly: '仅看有货',
     allCategories: '全部分类',
     addToCart: '加入',
@@ -104,17 +153,33 @@ export const TRANSLATIONS: Record<
     register: '注册',
     logout: '退出',
     stockLeft: '件有货',
-    adminPortalLink: '员工 / 店主后台入口',
   },
   'ms-MY': {
-    brandTagline: 'Kedai Runcit Segar Sungai Long',
-    heroTitle: 'Barangan Segar Sungai Long, Hantar Terus atau Ambil Sendiri',
-    heroSubtitle: 'Pek unit tetap dengan stok kedai masa nyata. Penghantaran Lalamove atau ambil di kedai.',
-    shopNow: 'Beli Sekarang',
+    brandTagline: 'Kedai Runcit Kejiranan Anda',
+    heroEyebrow: 'KEDAI TEMPATAN. KEPERLUAN HARIAN.',
+    heroTitle: 'Barangan Runcit Harian Anda, Lebih Dekat di Rumah.',
+    heroSubtitle: 'Lebih banyak pilihan. Nilai harian. Beli-belah dari kedai runcit kejiranan anda.',
+    shopNow: 'Beli Sekarang →',
     trackOrder: 'Jejak Pesanan',
     navShop: 'Kedai',
     navAbout: 'Tentang Kami',
     navOrders: 'Pesanan Saya',
+    featShopLocal: 'Kedai Tempatan',
+    featNoMin: 'Tiada Had Minimum',
+    featDelivery: 'Penghantaran',
+    featFreePickup: 'Ambil Percuma',
+    meetKicker: 'KENALI KAMKIM',
+    meetTitle: 'Kedai Runcit Tempatan Anda',
+    meetDesc: 'Tepat di Sungai Long, untuk keperluan harian anda.',
+    meetCta: 'Kenali Kami →',
+    valueKicker: 'NILAI HARIAN',
+    valueTitle: 'Lebih Untuk Keperluan Harian',
+    valueDesc: 'Temui keperluan asas untuk dapur dan rumah anda.',
+    valueCta: 'Teroka Keperluan →',
+    shopByCategory: 'Beli Mengikut Kategori',
+    viewAll: 'Lihat Semua →',
+    showLess: 'Tunjuk 6 Utama',
+    exploreTitle: 'Teroka Barangan Kami',
     searchPlaceholder: 'Cari produk atau kod bar...',
     inStockOnly: 'Ada Stok Sahaja',
     allCategories: 'Semua Kategori',
@@ -139,6 +204,5 @@ export const TRANSLATIONS: Record<
     register: 'Daftar',
     logout: 'Keluar',
     stockLeft: 'ada',
-    adminPortalLink: 'Portal Staf / Pemilik',
   },
 };
