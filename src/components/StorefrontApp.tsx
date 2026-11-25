@@ -86,6 +86,30 @@ const CATEGORY_PRESETS: Record<
     img: '/images/cat-readymeal.jpg',
     label: { en: 'Ready Meals', 'zh-CN': '方便包', 'ms-MY': 'Pek Sedia Dimakan' },
   },
+  '面包，蛋糕': {
+    img: '/images/cat-bakery.jpg',
+    label: { en: 'Bread & Cakes', 'zh-CN': '面包与蛋糕', 'ms-MY': 'Roti & Kek' },
+  },
+  罐头: {
+    img: '/images/cat-canned.jpg',
+    label: { en: 'Canned Food', 'zh-CN': '罐头', 'ms-MY': 'Makanan Tin' },
+  },
+  冰淇淋: {
+    img: '/images/cat-icecream.jpg',
+    label: { en: 'Ice Cream', 'zh-CN': '冰淇淋', 'ms-MY': 'Aiskrim' },
+  },
+  肉类: {
+    img: '/images/cat-meat.jpg',
+    label: { en: 'Meat', 'zh-CN': '肉类', 'ms-MY': 'Daging' },
+  },
+  汤料: {
+    img: '/images/cat-soup.jpg',
+    label: { en: 'Soup Spices', 'zh-CN': '汤料', 'ms-MY': 'Rempah Sup' },
+  },
+  五谷类: {
+    img: '/images/cat-grains.jpg',
+    label: { en: 'Grains & Rice', 'zh-CN': '五谷类', 'ms-MY': 'Bijirin & Beras' },
+  },
   'Beverages & Snacks': {
     img: '/images/cat-snacks.jpg',
     label: { en: 'Beverages & Snacks', 'zh-CN': '饮品零食', 'ms-MY': 'Minuman & Snek' },
