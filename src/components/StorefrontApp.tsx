@@ -476,7 +476,7 @@ export const StorefrontApp: React.FC = () => {
                     </a>
                   </div>
                 </div>
-                <div className="w-full md:w-[320px] lg:w-[350px] shrink-0 bg-white">
+                <div className="w-full md:w-[52%] md:max-w-[760px] shrink-0 bg-[#075E40] flex items-center justify-end">
                   <img
                     src="/images/hero-bag.jpg"
                     alt="KamKim Fresh Mart Groceries"
