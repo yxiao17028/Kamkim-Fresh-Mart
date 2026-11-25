@@ -2,6 +2,7 @@ import 'dotenv/config';
 import path from 'node:path';
 import { createApp } from './app';
 import { createDbClient } from './db/database';
+import { loadCatalogueSnapshotIfEmpty } from './db/snapshot';
 import { pullLivePospalCatalogue } from './services/pospal';
 
 const PORT = Number(process.env.PORT || 3000);
@@ -10,6 +11,12 @@ const DB_PATH = process.env.DB_PATH || path.resolve(process.cwd(), 'data', 'kamk
 
 async function start() {
   const db = await createDbClient(DB_PATH);
+  if (process.env.SEED_DEMO_PRODUCTS !== 'true') {
+    const loaded = loadCatalogueSnapshotIfEmpty(db);
+    if (loaded > 0) {
+      console.log(`Loaded ${loaded} products from bundled catalogue snapshot.`);
+    }
+  }
   const app = createApp(db, { serveStatic: true });
 
   app.listen(PORT, HOST, () => {

@@ -257,8 +257,11 @@ export function seedDatabase(db: DbClient): void {
       ['staff', 'Mei Ling (Store Staff)', 'staff@kamkimfresh.my', hashPassword(staffPass), now],
     );
 
-    // Skip seeding demo products & mock POSPAL items when running in live POSPAL mode
-    const seedDemoCatalogue = process.env.POSPAL_MODE !== 'live' || process.env.SEED_DEMO_PRODUCTS === 'true';
+    // Skip seeding demo products & mock POSPAL items when running in live POSPAL mode or when snapshot catalogue is loaded
+    const existingProducts = db.get<{ c: number }>('SELECT COUNT(*) AS c FROM products');
+    const seedDemoCatalogue =
+      (process.env.POSPAL_MODE !== 'live' || process.env.SEED_DEMO_PRODUCTS === 'true') &&
+      (existingProducts?.c ?? 0) === 0;
     if (!seedDemoCatalogue) {
       return;
     }
