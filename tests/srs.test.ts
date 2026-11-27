@@ -527,4 +527,125 @@ describe('KamKim Fresh Mart SRS v1.3 End-to-End Acceptance Tests', () => {
     expect(updated.is_active).toBe(1);
     expect(updated.image_url).toContain('unsplash.com');
   });
+
+  it('Customer Account Profile: basic info updates, max 5 addresses, and last-order address checkout priority', async () => {
+    const loginRes = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'customer@example.com', password: 'customer123' });
+    expect(loginRes.status).toBe(200);
+    const custCookies = loginRes.headers['set-cookie'] as unknown as string[];
+    expect(loginRes.body.customer.addresses.length).toBe(1);
+
+    // Update basic info (name, gmail, phone)
+    const updRes = await request(app)
+      .put('/api/customer/profile')
+      .set('Cookie', custCookies)
+      .send({
+        name: 'Tan Wei Ming Updated',
+        email: 'weiming.kamkim@gmail.com',
+        phone: '+6014-9314390',
+        preferredLang: 'zh-CN',
+      });
+    expect(updRes.status).toBe(200);
+    expect(updRes.body.customer.email).toBe('weiming.kamkim@gmail.com');
+    expect(updRes.body.customer.phone).toBe('+6014-9314390');
+
+    // Add 4 more addresses (reaching 5/5 max)
+    for (let i = 2; i <= 5; i++) {
+      const addRes = await request(app)
+        .post('/api/customer/addresses')
+        .set('Cookie', custCookies)
+        .send({
+          label: `Office ${i}`,
+          address: `${i * 10}, Jalan SL ${i}/1, Sungai Long`,
+          postcode: '43000',
+        });
+      expect(addRes.status).toBe(201);
+      expect(addRes.body.customer.addresses.length).toBe(i);
+    }
+
+    // 6th address must be rejected cleanly
+    const sixthRes = await request(app)
+      .post('/api/customer/addresses')
+      .set('Cookie', custCookies)
+      .send({
+        label: 'Extra 6th',
+        address: '99, Jalan Excess, Cheras',
+        postcode: '43200',
+      });
+    expect(sixthRes.status).toBe(400);
+
+    // Place a delivery order using Address #4
+    const orderRes = await request(app)
+      .post('/api/orders')
+      .set('Cookie', custCookies)
+      .send({
+        customerName: 'Tan Wei Ming Updated',
+        customerPhone: '+6014-9314390',
+        customerEmail: 'weiming.kamkim@gmail.com',
+        lang: 'zh-CN',
+        fulfilmentType: 'delivery',
+        slotId: 'immediate',
+        deliveryAddress: '40, Jalan SL 4/1, Sungai Long',
+        deliveryPostcode: '43000',
+        paymentMethod: 'fpx',
+        policyAccepted: true,
+        items: [{ productId: 1, quantity: 1 }],
+      });
+    expect(orderRes.status).toBe(201);
+
+    // Next profile fetch must prioritize the last historical order's delivery address
+    const meRes = await request(app).get('/api/auth/me').set('Cookie', custCookies);
+    expect(meRes.status).toBe(200);
+    expect(meRes.body.customer.preferredCheckoutAddress).toMatchObject({
+      address: '40, Jalan SL 4/1, Sungai Long',
+      postcode: '43000',
+      source: 'last_order',
+    });
+
+    // Delete 1 address cleanly
+    const addrIdToDelete = meRes.body.customer.addresses[4].id;
+    const delRes = await request(app)
+      .delete(`/api/customer/addresses/${addrIdToDelete}`)
+      .set('Cookie', custCookies);
+    expect(delRes.status).toBe(200);
+    expect(delRes.body.customer.addresses.length).toBe(4);
+  });
+
+  it('Customer Forgot Password: sends 6-digit auth code, rejects wrong code, and resets password', async () => {
+    const forgotRes = await request(app)
+      .post('/api/auth/forgot-password')
+      .send({ email: 'customer@example.com', lang: 'zh-CN' });
+    expect(forgotRes.status).toBe(200);
+    expect(forgotRes.body.deliveryMode).toBe('demo');
+    expect(forgotRes.body.demoCode).toMatch(/^\d{6}$/);
+
+    // Wrong code rejected
+    const badReset = await request(app).post('/api/auth/reset-password').send({
+      email: 'customer@example.com',
+      code: '000000',
+      newPassword: 'newpassword99',
+    });
+    expect(badReset.status).toBe(400);
+
+    // Valid code resets password and issues authenticated session
+    const okReset = await request(app).post('/api/auth/reset-password').send({
+      email: 'customer@example.com',
+      code: forgotRes.body.demoCode,
+      newPassword: 'newpassword99',
+    });
+    expect(okReset.status).toBe(200);
+    expect(okReset.body.ok).toBe(true);
+
+    // Old password rejected, new password accepted
+    const oldLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'customer@example.com', password: 'customer123' });
+    expect(oldLogin.status).toBe(401);
+
+    const newLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'customer@example.com', password: 'newpassword99' });
+    expect(newLogin.status).toBe(200);
+  });
 });

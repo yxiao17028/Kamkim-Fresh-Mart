@@ -22,6 +22,7 @@ import { TRANSLATIONS } from '../i18n/translations';
 import { apiFetch, formatRM } from '../lib/api';
 import { CartItem, CustomerUser, Lang, Product, StoreInfo } from '../types';
 import { CheckoutModal } from './CheckoutModal';
+import { CustomerProfilePanel } from './CustomerProfilePanel';
 import { HostedGatewayModal } from './HostedGatewayModal';
 import { OrderTrackingPage } from './OrderTrackingPage';
 import { PolicyPages } from './PolicyPages';
@@ -161,7 +162,7 @@ export const StorefrontApp: React.FC = () => {
     }>
   >([]);
 
-  const [activeTab, setActiveTab] = useState<'shop' | 'about' | 'orders' | 'track'>('shop');
+  const [activeTab, setActiveTab] = useState<'shop' | 'about' | 'orders' | 'track' | 'profile'>('shop');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showAllCategories, setShowAllCategories] = useState(false);
@@ -176,8 +177,13 @@ export const StorefrontApp: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [authForm, setAuthForm] = useState({ email: '', password: '', name: '', phone: '', address: '', postcode: '43000' });
+  const [forgotStep, setForgotStep] = useState<'request' | 'reset'>('request');
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [forgotInfo, setForgotInfo] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
   const [authError, setAuthError] = useState('');
 
   const [trackLookup, setTrackLookup] = useState({ orderCode: '', token: '' });
@@ -341,11 +347,71 @@ export const StorefrontApp: React.FC = () => {
     }
   };
 
+  const handleRequestResetCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    setForgotInfo('');
+    setForgotLoading(true);
+    try {
+      const res = await apiFetch<{
+        ok: boolean;
+        deliveryMode: 'email' | 'demo';
+        demoCode?: string;
+        message: string;
+      }>('/api/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email: authForm.email, lang }),
+      });
+      setForgotInfo(res.message);
+      if (res.demoCode) setResetCode(res.demoCode);
+      setForgotStep('reset');
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : 'Failed to request verification code.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    setForgotLoading(true);
+    try {
+      const res = await apiFetch<{ ok: boolean; customer: CustomerUser }>('/api/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: authForm.email,
+          code: resetCode,
+          newPassword,
+        }),
+      });
+      setCustomer(res.customer);
+      setAuthModalOpen(false);
+      setForgotStep('request');
+      setResetCode('');
+      setNewPassword('');
+      setForgotInfo('');
+      const ordRes = await apiFetch<{ orders: typeof customerOrders }>('/api/customer/orders');
+      setCustomerOrders(ordRes.orders);
+      setBannerNotice(
+        lang === 'zh-CN'
+          ? '密码已重置并自动登录。'
+          : lang === 'ms-MY'
+            ? 'Kata laluan ditetapkan semula dan anda telah log masuk.'
+            : 'Password updated and signed in.',
+      );
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : 'Password reset failed.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   const handleLogout = async () => {
     await apiFetch('/api/auth/logout', { method: 'POST' });
     setCustomer(null);
     setCustomerOrders([]);
-    if (activeTab === 'orders') setActiveTab('shop');
+    if (activeTab === 'orders' || activeTab === 'profile') setActiveTab('shop');
   };
 
   const handleReorder = (items: Array<{ productId: number; quantity: number }>, notices: string[]) => {
@@ -478,15 +544,26 @@ export const StorefrontApp: React.FC = () => {
                 </div>
 
                 {customer ? (
-                  <button
-                    onClick={() => {
-                      handleLogout();
-                      setMobileMenuOpen(false);
-                    }}
-                    className="px-3 py-1.5 rounded-xl border border-stone-200 text-xs font-semibold text-stone-700"
-                  >
-                    {customer.name} · {t.logout}
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => {
+                        setActiveTab('profile');
+                        setMobileMenuOpen(false);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-50 text-[#075E40] text-xs font-bold"
+                    >
+                      {customer.name}
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="px-2.5 py-1.5 rounded-xl border border-stone-200 text-xs font-semibold text-stone-700"
+                    >
+                      {t.logout}
+                    </button>
+                  </div>
                 ) : (
                   <button
                     onClick={() => {
@@ -557,8 +634,13 @@ export const StorefrontApp: React.FC = () => {
             {customer ? (
               <div className="flex items-center gap-1.5">
                 <button
-                  onClick={() => setActiveTab('orders')}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 text-xs font-semibold text-stone-800"
+                  onClick={() => setActiveTab('profile')}
+                  title="Account Profile & Saved Addresses"
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    activeTab === 'profile'
+                      ? 'bg-emerald-50 text-[#075E40] font-bold'
+                      : 'bg-stone-100 text-stone-800 hover:bg-stone-200'
+                  }`}
                 >
                   <User className="w-3.5 h-3.5 text-[#075E40]" /> {customer.name}
                 </button>
@@ -955,7 +1037,16 @@ export const StorefrontApp: React.FC = () => {
 
             {customer && (
               <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-sm space-y-4">
-                <h3 className="text-base font-bold">Order History — {customer.name}</h3>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-base font-bold">Order History — {customer.name}</h3>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('profile')}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-50 text-[#075E40] text-xs font-bold hover:bg-emerald-100"
+                  >
+                    {lang === 'zh-CN' ? '管理个人资料与地址 (最多5个) →' : 'Manage Profile & 5 Addresses →'}
+                  </button>
+                </div>
                 {customerOrders.length === 0 ? (
                   <p className="text-sm text-stone-500">No orders placed yet.</p>
                 ) : (
@@ -997,6 +1088,15 @@ export const StorefrontApp: React.FC = () => {
             lang={lang}
             onReorder={handleReorder}
             onBack={() => setActiveTab('shop')}
+          />
+        )}
+
+        {activeTab === 'profile' && customer && (
+          <CustomerProfilePanel
+            customer={customer}
+            lang={lang}
+            onCustomerUpdated={(updated) => setCustomer(updated)}
+            onSwitchToOrders={() => setActiveTab('orders')}
           />
         )}
       </main>
@@ -1077,13 +1177,15 @@ export const StorefrontApp: React.FC = () => {
           type="button"
           onClick={() => {
             if (customer) {
-              setActiveTab('orders');
+              setActiveTab('profile');
             } else {
               setAuthMode('login');
               setAuthModalOpen(true);
             }
           }}
-          className="flex flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-semibold text-stone-500 hover:text-[#075E40]"
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-semibold ${
+            activeTab === 'profile' ? 'text-[#075E40]' : 'text-stone-500 hover:text-[#075E40]'
+          }`}
         >
           <User className="w-5 h-5" />
           <span>{t.navAccount}</span>
@@ -1263,81 +1365,215 @@ export const StorefrontApp: React.FC = () => {
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold">{authMode === 'login' ? t.login : t.register}</h3>
-              <button onClick={() => setAuthModalOpen(false)}>
+              <h3 className="text-lg font-bold">
+                {authMode === 'login'
+                  ? t.login
+                  : authMode === 'register'
+                    ? t.register
+                    : lang === 'zh-CN'
+                      ? '忘记密码'
+                      : lang === 'ms-MY'
+                        ? 'Lupa Kata Laluan'
+                        : 'Forgot Password'}
+              </h3>
+              <button
+                onClick={() => {
+                  setAuthModalOpen(false);
+                  setAuthError('');
+                }}
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="flex gap-2 text-xs font-semibold">
               <button
-                onClick={() => setAuthMode('login')}
+                onClick={() => {
+                  setAuthMode('login');
+                  setAuthError('');
+                }}
                 className={`flex-1 py-2 rounded-lg ${authMode === 'login' ? 'bg-[#075E40] text-white' : 'bg-stone-100'}`}
               >
                 {t.login}
               </button>
               <button
-                onClick={() => setAuthMode('register')}
+                onClick={() => {
+                  setAuthMode('register');
+                  setAuthError('');
+                }}
                 className={`flex-1 py-2 rounded-lg ${authMode === 'register' ? 'bg-[#075E40] text-white' : 'bg-stone-100'}`}
               >
                 {t.register}
               </button>
             </div>
-            <form onSubmit={handleAuthSubmit} className="space-y-3">
-              {authMode === 'register' && (
-                <>
+
+            {authMode === 'forgot' ? (
+              forgotStep === 'request' ? (
+                <form onSubmit={handleRequestResetCode} className="space-y-3">
+                  <p className="text-xs text-stone-600 leading-relaxed">
+                    {lang === 'zh-CN'
+                      ? '输入您注册时使用的 Gmail / 邮箱地址，系统将发送 6 位验证码用于重置密码。'
+                      : lang === 'ms-MY'
+                        ? 'Masukkan alamat Gmail / e-mel berdaftar anda untuk menerima kod pengesahan 6 digit.'
+                        : 'Enter your registered Gmail / email address and we will send a 6-digit authentication code to reset your password.'}
+                  </p>
                   <input
                     required
-                    value={authForm.name}
-                    onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
-                    placeholder="Full Name"
+                    type="email"
+                    value={authForm.email}
+                    onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+                    placeholder="Email / Gmail address"
                     className="w-full px-3 py-2 rounded-xl border border-stone-300 text-sm"
+                  />
+                  {authError && <div className="text-xs text-red-600">{authError}</div>}
+                  <button
+                    type="submit"
+                    disabled={forgotLoading}
+                    className="w-full py-2.5 rounded-xl bg-[#075E40] text-white font-bold text-sm disabled:opacity-50"
+                  >
+                    {forgotLoading
+                      ? 'Sending...'
+                      : lang === 'zh-CN'
+                        ? '发送验证码到邮箱'
+                        : lang === 'ms-MY'
+                          ? 'Hantar Kod Pengesahan'
+                          : 'Send Verification Code'}
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleResetPassword} className="space-y-3">
+                  {forgotInfo && (
+                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900">
+                      {forgotInfo}
+                    </div>
+                  )}
+                  <input
+                    required
+                    type="email"
+                    value={authForm.email}
+                    onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+                    placeholder="Email / Gmail address"
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 text-sm bg-stone-50"
                   />
                   <input
                     required
-                    value={authForm.phone}
-                    onChange={(e) => setAuthForm({ ...authForm, phone: e.target.value })}
-                    placeholder="Phone Number (+60...)"
+                    value={resetCode}
+                    onChange={(e) => setResetCode(e.target.value)}
+                    placeholder={lang === 'zh-CN' ? '输入 6 位邮箱验证码' : '6-digit verification code'}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 text-sm tracking-widest font-mono"
+                  />
+                  <input
+                    required
+                    type="password"
+                    minLength={6}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder={lang === 'zh-CN' ? '新密码（至少 6 位）' : 'New password (min 6 chars)'}
                     className="w-full px-3 py-2 rounded-xl border border-stone-300 text-sm"
                   />
-                </>
-              )}
-              <input
-                required
-                type="email"
-                value={authForm.email}
-                onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
-                placeholder="Email address"
-                className="w-full px-3 py-2 rounded-xl border border-stone-300 text-sm"
-              />
-              <input
-                required
-                type="password"
-                value={authForm.password}
-                onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
-                placeholder="Password"
-                className="w-full px-3 py-2 rounded-xl border border-stone-300 text-sm"
-              />
-              {authMode === 'register' && (
-                <div className="grid grid-cols-3 gap-2">
-                  <input
-                    value={authForm.address}
-                    onChange={(e) => setAuthForm({ ...authForm, address: e.target.value })}
-                    placeholder="Default Address"
-                    className="col-span-2 px-3 py-2 rounded-xl border border-stone-300 text-sm"
-                  />
-                  <input
-                    value={authForm.postcode}
-                    onChange={(e) => setAuthForm({ ...authForm, postcode: e.target.value })}
-                    placeholder="Postcode"
-                    className="px-3 py-2 rounded-xl border border-stone-300 text-sm"
-                  />
-                </div>
-              )}
-              {authError && <div className="text-xs text-red-600">{authError}</div>}
-              <button type="submit" className="w-full py-2.5 rounded-xl bg-[#075E40] text-white font-bold text-sm">
-                {authMode === 'login' ? t.login : t.register}
-              </button>
-            </form>
+                  {authError && <div className="text-xs text-red-600">{authError}</div>}
+                  <button
+                    type="submit"
+                    disabled={forgotLoading}
+                    className="w-full py-2.5 rounded-xl bg-[#075E40] text-white font-bold text-sm disabled:opacity-50"
+                  >
+                    {forgotLoading
+                      ? 'Resetting...'
+                      : lang === 'zh-CN'
+                        ? '验证并重置密码'
+                        : lang === 'ms-MY'
+                          ? 'Sahkan & Tetap Semula'
+                          : 'Verify Code & Reset Password'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotStep('request');
+                      setAuthError('');
+                    }}
+                    className="w-full text-xs text-stone-500 hover:text-stone-800 underline"
+                  >
+                    {lang === 'zh-CN' ? '重新发送验证码' : 'Resend / use different email'}
+                  </button>
+                </form>
+              )
+            ) : (
+              <form onSubmit={handleAuthSubmit} className="space-y-3">
+                {authMode === 'register' && (
+                  <>
+                    <input
+                      required
+                      value={authForm.name}
+                      onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
+                      placeholder="Full Name"
+                      className="w-full px-3 py-2 rounded-xl border border-stone-300 text-sm"
+                    />
+                    <input
+                      required
+                      value={authForm.phone}
+                      onChange={(e) => setAuthForm({ ...authForm, phone: e.target.value })}
+                      placeholder="Phone Number (+60...)"
+                      className="w-full px-3 py-2 rounded-xl border border-stone-300 text-sm"
+                    />
+                  </>
+                )}
+                <input
+                  required
+                  type="email"
+                  value={authForm.email}
+                  onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+                  placeholder="Email address"
+                  className="w-full px-3 py-2 rounded-xl border border-stone-300 text-sm"
+                />
+                <input
+                  required
+                  type="password"
+                  value={authForm.password}
+                  onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+                  placeholder="Password"
+                  className="w-full px-3 py-2 rounded-xl border border-stone-300 text-sm"
+                />
+                {authMode === 'register' && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <input
+                      value={authForm.address}
+                      onChange={(e) => setAuthForm({ ...authForm, address: e.target.value })}
+                      placeholder="Default Address"
+                      className="col-span-2 px-3 py-2 rounded-xl border border-stone-300 text-sm"
+                    />
+                    <input
+                      value={authForm.postcode}
+                      onChange={(e) => setAuthForm({ ...authForm, postcode: e.target.value })}
+                      placeholder="Postcode"
+                      className="px-3 py-2 rounded-xl border border-stone-300 text-sm"
+                    />
+                  </div>
+                )}
+                {authError && <div className="text-xs text-red-600">{authError}</div>}
+                <button type="submit" className="w-full py-2.5 rounded-xl bg-[#075E40] text-white font-bold text-sm">
+                  {authMode === 'login' ? t.login : t.register}
+                </button>
+                {authMode === 'login' && (
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode('forgot');
+                        setForgotStep('request');
+                        setAuthError('');
+                        setForgotInfo('');
+                      }}
+                      className="text-xs font-semibold text-[#075E40] hover:underline"
+                    >
+                      {lang === 'zh-CN'
+                        ? '忘记密码？通过邮箱验证码重置'
+                        : lang === 'ms-MY'
+                          ? 'Lupa kata laluan? Tetap semula melalui e-mel'
+                          : 'Forgot password? Reset via Email'}
+                    </button>
+                  </div>
+                )}
+              </form>
+            )}
           </div>
         </div>
       )}

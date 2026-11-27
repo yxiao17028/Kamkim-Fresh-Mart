@@ -25,8 +25,12 @@ export const CheckoutModal: React.FC<{
   const [customerName, setCustomerName] = useState(customer?.name || '');
   const [customerPhone, setCustomerPhone] = useState(customer?.phone || '');
   const [customerEmail, setCustomerEmail] = useState(customer?.email || '');
-  const [address, setAddress] = useState(customer?.defaultAddress || '');
-  const [postcode, setPostcode] = useState(customer?.defaultPostcode || '43000');
+  const preferredAddr = customer?.preferredCheckoutAddress;
+  const savedAddresses = customer?.addresses || [];
+  const [address, setAddress] = useState(preferredAddr?.address || customer?.defaultAddress || '');
+  const [postcode, setPostcode] = useState(preferredAddr?.postcode || customer?.defaultPostcode || '43000');
+  const [saveAddress, setSaveAddress] = useState(false);
+  const [addressLabel, setAddressLabel] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'fpx' | 'card' | 'tng' | 'grabpay' | 'pay_at_store'>('fpx');
   const [policyAccepted, setPolicyAccepted] = useState(false);
@@ -93,6 +97,8 @@ export const CheckoutModal: React.FC<{
           deliveryAddress: address,
           deliveryPostcode: postcode,
           deliveryNotes,
+          saveAddress,
+          addressLabel,
           paymentMethod,
           policyAccepted,
           quoteId: quote?.quoteId,
@@ -212,9 +218,66 @@ export const CheckoutModal: React.FC<{
           {/* Delivery Address + Live Lalamove Quote */}
           {fulfilmentType === 'delivery' && (
             <div className="p-4 rounded-xl bg-stone-50 border border-stone-200 space-y-3">
-              <div className="font-semibold text-sm flex items-center gap-1.5 text-stone-800">
-                <MapPin className="w-4 h-4 text-emerald-700" /> Delivery Address & Lalamove Quote
+              <div className="font-semibold text-sm flex items-center justify-between gap-2 text-stone-800">
+                <span className="flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-emerald-700" /> Delivery Address & Lalamove Quote
+                </span>
+                {preferredAddr?.source === 'last_order' && address.trim() === preferredAddr.address.trim() && (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold">
+                    {lang === 'zh-CN' ? '已优先填入上次订单地址' : 'Prioritized: Last Order'}
+                  </span>
+                )}
               </div>
+
+              {customer && (preferredAddr || savedAddresses.length > 0) && (
+                <div className="flex flex-wrap gap-1.5">
+                  {preferredAddr?.source === 'last_order' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddress(preferredAddr.address);
+                        setPostcode(preferredAddr.postcode || '43000');
+                        setQuote(null);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg border text-xs font-semibold transition ${
+                        address.trim().toLowerCase() === preferredAddr.address.trim().toLowerCase()
+                          ? 'border-emerald-700 bg-emerald-50 text-emerald-900'
+                          : 'border-stone-300 bg-white text-stone-700 hover:bg-stone-100'
+                      }`}
+                    >
+                      ★ {lang === 'zh-CN' ? '上次订单' : 'Last Order'}: {preferredAddr.address.slice(0, 26)}
+                      {preferredAddr.address.length > 26 ? '…' : ''}
+                    </button>
+                  )}
+                  {savedAddresses
+                    .filter(
+                      (sa) =>
+                        !preferredAddr ||
+                        preferredAddr.source !== 'last_order' ||
+                        sa.address.trim().toLowerCase() !== preferredAddr.address.trim().toLowerCase(),
+                    )
+                    .map((sa) => (
+                      <button
+                        type="button"
+                        key={sa.id}
+                        onClick={() => {
+                          setAddress(sa.address);
+                          setPostcode(sa.postcode || '43000');
+                          setQuote(null);
+                        }}
+                        className={`px-2.5 py-1 rounded-lg border text-xs font-medium transition ${
+                          address.trim().toLowerCase() === sa.address.trim().toLowerCase()
+                            ? 'border-emerald-700 bg-emerald-50 text-emerald-900'
+                            : 'border-stone-300 bg-white text-stone-700 hover:bg-stone-100'
+                        }`}
+                      >
+                        {sa.label}: {sa.address.slice(0, 24)}
+                        {sa.address.length > 24 ? '…' : ''}
+                      </button>
+                    ))}
+                </div>
+              )}
+
               <div className="grid sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-2">
                   <input
@@ -241,6 +304,32 @@ export const CheckoutModal: React.FC<{
                   />
                 </div>
               </div>
+              {customer &&
+                address.trim() &&
+                savedAddresses.length < 5 &&
+                !savedAddresses.some((sa) => sa.address.trim().toLowerCase() === address.trim().toLowerCase()) && (
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-stone-700">
+                    <label className="flex items-center gap-1.5 cursor-pointer font-medium">
+                      <input
+                        type="checkbox"
+                        checked={saveAddress}
+                        onChange={(e) => setSaveAddress(e.target.checked)}
+                        className="rounded border-stone-300 text-emerald-700"
+                      />
+                      {lang === 'zh-CN'
+                        ? `保存到我的地址簿 (${savedAddresses.length}/5)`
+                        : `Save address to my profile (${savedAddresses.length}/5)`}
+                    </label>
+                    {saveAddress && (
+                      <input
+                        value={addressLabel}
+                        onChange={(e) => setAddressLabel(e.target.value)}
+                        placeholder={lang === 'zh-CN' ? '地址标签（如：公司）' : 'Label (e.g. Office)'}
+                        className="px-2.5 py-1 rounded-lg border border-stone-300 bg-white text-xs"
+                      />
+                    )}
+                  </div>
+                )}
               <input
                 value={deliveryNotes}
                 onChange={(e) => setDeliveryNotes(e.target.value)}

@@ -51,6 +51,24 @@ export interface CartItem {
   quantity: number;
 }
 
+export interface CustomerAddress {
+  id: number;
+  label: string;
+  recipientName: string;
+  phone: string;
+  address: string;
+  postcode: string;
+  isDefault: boolean;
+  lastUsedAt?: string | null;
+}
+
+export interface PreferredCheckoutAddress {
+  address: string;
+  postcode: string;
+  label?: string;
+  source: 'last_order' | 'default' | 'saved';
+}
+
 export interface CustomerUser {
   id: number;
   email: string;
@@ -59,6 +77,8 @@ export interface CustomerUser {
   defaultAddress: string;
   defaultPostcode: string;
   preferredLang?: string;
+  addresses?: CustomerAddress[];
+  preferredCheckoutAddress?: PreferredCheckoutAddress | null;
 }
 
 export interface AdminUser {

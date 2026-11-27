@@ -267,7 +267,7 @@ export function seedDatabase(db: DbClient): void {
     }
 
     // Demo registered customer
-    db.run(
+    const custRes = db.run(
       `INSERT INTO customers (email, name, phone, password_hash, default_address, default_postcode, preferred_lang, created_at)
        VALUES (?, ?, ?, ?, ?, ?, 'en', ?)`,
       [
@@ -279,6 +279,11 @@ export function seedDatabase(db: DbClient): void {
         '43000',
         now,
       ],
+    );
+    db.run(
+      `INSERT INTO customer_addresses (customer_id, label, recipient_name, phone, address, postcode, is_default, last_used_at, created_at)
+       VALUES (?, 'Home', 'Tan Wei Ming', '+6016-7788990', '15, Jalan SL 6/3, Bandar Sungai Long, Kajang', '43000', 1, ?, ?)`,
+      [custRes.lastInsertRowid, now, now],
     );
 
     for (const p of SEED_PRODUCTS) {

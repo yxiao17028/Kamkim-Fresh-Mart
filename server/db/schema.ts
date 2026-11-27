@@ -244,4 +244,28 @@ CREATE TABLE IF NOT EXISTS email_logs (
   status TEXT NOT NULL DEFAULT 'sent',
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS customer_addresses (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  label TEXT NOT NULL DEFAULT 'Home',
+  recipient_name TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  address TEXT NOT NULL,
+  postcode TEXT NOT NULL DEFAULT '43000',
+  is_default INTEGER NOT NULL DEFAULT 0,
+  last_used_at TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS password_reset_codes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  code_hash TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  used_at TEXT,
+  created_at TEXT NOT NULL
+);
 `;

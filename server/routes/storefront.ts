@@ -6,13 +6,21 @@ import {
   PAYMENT_WEBHOOK_SECRET,
   createSessionToken,
   hashPassword,
+  hashResetCode,
   rateLimitAuth,
   requireCustomer,
   signHmac,
   verifyPassword,
+  verifyResetCode,
 } from '../services/auth';
 import { writeAuditLog } from '../services/audit';
-import { sendOrderEmail } from '../services/email';
+import {
+  MAX_SAVED_ADDRESSES,
+  getCustomerProfilePayload,
+  recordOrderAddressForCustomer,
+  syncCustomerDefaultFields,
+} from '../services/customerProfile';
+import { isSmtpEmailConfigured, sendOrderEmail, sendPasswordResetCodeEmail } from '../services/email';
 import { adminEvents } from '../services/events';
 import { getLalamoveQuote } from '../services/lalamove';
 import { handleGatewayPaymentWebhook } from '../services/paymentGateway';
@@ -279,20 +287,25 @@ export function createStorefrontRouter(db: DbClient): Router {
     }
 
     const now = new Date().toISOString();
-    const result = db.run(
-      `INSERT INTO customers (email, name, phone, password_hash, default_address, default_postcode, preferred_lang, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        cleanEmail,
-        String(name).trim(),
-        String(phone).trim(),
-        hashPassword(String(password)),
-        defaultAddress ? String(defaultAddress).trim() : '',
-        defaultPostcode ? String(defaultPostcode).trim() : '',
-        ['en', 'zh-CN', 'ms-MY'].includes(preferredLang) ? preferredLang : 'en',
-        now,
-      ],
-    );
+    const cleanAddr = defaultAddress ? String(defaultAddress).trim() : '';
+    const cleanPost = defaultPostcode ? String(defaultPostcode).trim() : '43000';
+    const cleanLang = ['en', 'zh-CN', 'ms-MY'].includes(preferredLang) ? preferredLang : 'en';
+
+    const result = db.transaction(() => {
+      const custRes = db.run(
+        `INSERT INTO customers (email, name, phone, password_hash, default_address, default_postcode, preferred_lang, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [cleanEmail, String(name).trim(), String(phone).trim(), hashPassword(String(password)), cleanAddr, cleanPost, cleanLang, now],
+      );
+      if (cleanAddr) {
+        db.run(
+          `INSERT INTO customer_addresses (customer_id, label, recipient_name, phone, address, postcode, is_default, created_at)
+           VALUES (?, 'Home', ?, ?, ?, ?, 1, ?)`,
+          [custRes.lastInsertRowid, String(name).trim(), String(phone).trim(), cleanAddr, cleanPost, now],
+        );
+      }
+      return custRes;
+    });
 
     const token = createSessionToken({ sub: result.lastInsertRowid, type: 'customer' }, 72);
     res.cookie('kk_customer_session', token, {
@@ -302,14 +315,7 @@ export function createStorefrontRouter(db: DbClient): Router {
       maxAge: 72 * 3600 * 1000,
     });
     res.status(201).json({
-      customer: {
-        id: result.lastInsertRowid,
-        email: cleanEmail,
-        name: String(name).trim(),
-        phone: String(phone).trim(),
-        defaultAddress: defaultAddress ? String(defaultAddress).trim() : '',
-        defaultPostcode: defaultPostcode ? String(defaultPostcode).trim() : '',
-      },
+      customer: getCustomerProfilePayload(db, result.lastInsertRowid),
     });
   });
 
@@ -321,14 +327,8 @@ export function createStorefrontRouter(db: DbClient): Router {
     }
     const user = db.get<{
       id: number;
-      email: string;
-      name: string;
-      phone: string;
       password_hash: string;
-      default_address: string | null;
-      default_postcode: string | null;
-      preferred_lang: string;
-    }>('SELECT * FROM customers WHERE email = ?', [String(email).trim().toLowerCase()]);
+    }>('SELECT id, password_hash FROM customers WHERE email = ?', [String(email).trim().toLowerCase()]);
 
     if (!user || !verifyPassword(String(password), user.password_hash)) {
       res.status(401).json({ error: 'Invalid email or password.' });
@@ -343,15 +343,7 @@ export function createStorefrontRouter(db: DbClient): Router {
       maxAge: 72 * 3600 * 1000,
     });
     res.json({
-      customer: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        phone: user.phone,
-        defaultAddress: user.default_address || '',
-        defaultPostcode: user.default_postcode || '',
-        preferredLang: user.preferred_lang,
-      },
+      customer: getCustomerProfilePayload(db, user.id),
     });
   });
 
@@ -361,7 +353,150 @@ export function createStorefrontRouter(db: DbClient): Router {
   });
 
   router.get('/auth/me', (req: AuthedRequest, res) => {
-    res.json({ customer: req.customerUser ?? null });
+    if (!req.customerUser) {
+      res.json({ customer: null });
+      return;
+    }
+    res.json({ customer: getCustomerProfilePayload(db, req.customerUser.id) });
+  });
+
+  router.post('/auth/forgot-password', rateLimitAuth(8, 60_000), async (req, res) => {
+    const cleanEmail = String(req.body?.email ?? '')
+      .trim()
+      .toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      res.status(400).json({ error: 'Please enter a valid email address.' });
+      return;
+    }
+
+    const user = db.get<{ id: number; email: string; name: string; preferred_lang: string }>(
+      'SELECT id, email, name, preferred_lang FROM customers WHERE email = ?',
+      [cleanEmail],
+    );
+
+    const smtpConfigured = isSmtpEmailConfigured();
+    if (!user) {
+      if (smtpConfigured) {
+        // Avoid enumerating accounts when real email delivery is active
+        res.json({
+          ok: true,
+          deliveryMode: 'email',
+          message: 'If an account matches that email, a 6-digit authentication code has been sent.',
+        });
+        return;
+      }
+      res.status(404).json({ error: 'No registered account found for that email address.' });
+      return;
+    }
+
+    const code = String(crypto.randomInt(100000, 1000000));
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 15 * 60 * 1000).toISOString();
+    const nowIso = now.toISOString();
+
+    db.transaction(() => {
+      db.run('UPDATE password_reset_codes SET used_at = ? WHERE customer_id = ? AND used_at IS NULL', [
+        nowIso,
+        user.id,
+      ]);
+      db.run(
+        `INSERT INTO password_reset_codes (customer_id, email, code_hash, expires_at, attempts, created_at)
+         VALUES (?, ?, ?, ?, 0, ?)`,
+        [user.id, user.email, hashResetCode(user.email, code), expiresAt, nowIso],
+      );
+    });
+
+    const lang = ['en', 'zh-CN', 'ms-MY'].includes(String(req.body?.lang))
+      ? String(req.body.lang)
+      : user.preferred_lang || 'en';
+
+    try {
+      const emailRes = await sendPasswordResetCodeEmail(db, {
+        recipient: user.email,
+        customerName: user.name,
+        code,
+        lang,
+      });
+      res.json({
+        ok: true,
+        deliveryMode: emailRes.deliveryMode,
+        ...(emailRes.deliveryMode === 'demo' ? { demoCode: code } : {}),
+        message:
+          emailRes.deliveryMode === 'email'
+            ? `A 6-digit authentication code has been sent to ${user.email}.`
+            : `Gmail SMTP is not configured on this server yet. Use verification code ${code} (expires in 15 minutes).`,
+      });
+    } catch (err) {
+      res.status(502).json({
+        error: err instanceof Error ? `Failed to send verification email: ${err.message}` : 'Failed to send email.',
+      });
+    }
+  });
+
+  router.post('/auth/reset-password', rateLimitAuth(15, 60_000), (req, res) => {
+    const cleanEmail = String(req.body?.email ?? '')
+      .trim()
+      .toLowerCase();
+    const code = String(req.body?.code ?? '').trim();
+    const newPassword = String(req.body?.newPassword ?? '');
+
+    if (!cleanEmail || !code || newPassword.length < 6) {
+      res.status(400).json({ error: 'Email, 6-digit code, and new password (min 6 chars) are required.' });
+      return;
+    }
+
+    const row = db.get<{
+      id: number;
+      customer_id: number;
+      email: string;
+      code_hash: string;
+      expires_at: string;
+      attempts: number;
+    }>(
+      `SELECT id, customer_id, email, code_hash, expires_at, attempts
+       FROM password_reset_codes
+       WHERE email = ? AND used_at IS NULL
+       ORDER BY id DESC LIMIT 1`,
+      [cleanEmail],
+    );
+
+    if (!row || new Date(row.expires_at).getTime() < Date.now()) {
+      res.status(400).json({ error: 'Verification code is invalid or has expired. Please request a new code.' });
+      return;
+    }
+    if (row.attempts >= 5) {
+      res.status(429).json({ error: 'Too many invalid code attempts. Please request a new verification code.' });
+      return;
+    }
+    if (!verifyResetCode(cleanEmail, code, row.code_hash)) {
+      db.run('UPDATE password_reset_codes SET attempts = attempts + 1 WHERE id = ?', [row.id]);
+      res.status(400).json({ error: 'Incorrect authentication code. Please check and try again.' });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    db.transaction(() => {
+      db.run('UPDATE password_reset_codes SET used_at = ? WHERE id = ?', [now, row.id]);
+      db.run('UPDATE customers SET password_hash = ? WHERE id = ?', [hashPassword(newPassword), row.customer_id]);
+      writeAuditLog(db, {
+        actorType: 'customer',
+        actorId: row.customer_id,
+        actorName: cleanEmail,
+        action: 'CUSTOMER_PASSWORD_RESET',
+        entityType: 'customer',
+        entityId: row.customer_id,
+        details: { method: 'email_auth_code' },
+      });
+    });
+
+    const token = createSessionToken({ sub: row.customer_id, type: 'customer' }, 72);
+    res.cookie('kk_customer_session', token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: req.secure,
+      maxAge: 72 * 3600 * 1000,
+    });
+    res.json({ ok: true, customer: getCustomerProfilePayload(db, row.customer_id) });
   });
 
   router.post('/delivery/quote', (req, res) => {
@@ -382,6 +517,8 @@ export function createStorefrontRouter(db: DbClient): Router {
       deliveryAddress,
       deliveryPostcode,
       deliveryNotes,
+      saveAddress,
+      addressLabel,
       paymentMethod,
       policyAccepted,
       items,
@@ -572,6 +709,17 @@ export function createStorefrontRouter(db: DbClient): Router {
         entityId: orderCode,
         details: { fulfilmentType, paymentMethod, totalSen, itemCount: resolvedItems.length },
       });
+
+      if (req.customerUser && fulfilmentType === 'delivery' && deliveryAddress) {
+        recordOrderAddressForCustomer(db, req.customerUser.id, {
+          address: String(deliveryAddress),
+          postcode: String(deliveryPostcode || '43000'),
+          recipientName: String(customerName),
+          phone: String(customerPhone),
+          saveAddress: Boolean(saveAddress),
+          label: typeof addressLabel === 'string' ? addressLabel : undefined,
+        });
+      }
     });
 
     if (paymentMethod === 'pay_at_store') {
@@ -651,6 +799,203 @@ export function createStorefrontRouter(db: DbClient): Router {
     const sig = signHmac(PAYMENT_WEBHOOK_SECRET, rawBody);
     const result = handleGatewayPaymentWebhook(db, rawBody, sig);
     res.json(result);
+  });
+
+  router.get('/customer/profile', requireCustomer, (req: AuthedRequest, res) => {
+    res.json({ customer: getCustomerProfilePayload(db, req.customerUser!.id) });
+  });
+
+  router.put('/customer/profile', requireCustomer, (req: AuthedRequest, res) => {
+    const customerId = req.customerUser!.id;
+    const { name, email, phone, preferredLang } = req.body ?? {};
+    const cleanName = String(name ?? '').trim();
+    const cleanEmail = String(email ?? '')
+      .trim()
+      .toLowerCase();
+    const cleanPhone = String(phone ?? '').trim();
+
+    if (!cleanName || !cleanEmail || !cleanEmail.includes('@') || !cleanPhone) {
+      res.status(400).json({ error: 'Name, valid email/Gmail, and phone number are required.' });
+      return;
+    }
+
+    const dup = db.get<{ id: number }>('SELECT id FROM customers WHERE email = ? AND id != ?', [cleanEmail, customerId]);
+    if (dup) {
+      res.status(409).json({ error: 'Another account already uses that email address.' });
+      return;
+    }
+
+    const langVal = ['en', 'zh-CN', 'ms-MY'].includes(String(preferredLang))
+      ? String(preferredLang)
+      : req.customerUser!.preferredLang;
+
+    db.run('UPDATE customers SET name = ?, email = ?, phone = ?, preferred_lang = ? WHERE id = ?', [
+      cleanName,
+      cleanEmail,
+      cleanPhone,
+      langVal,
+      customerId,
+    ]);
+    writeAuditLog(db, {
+      actorType: 'customer',
+      actorId: customerId,
+      actorName: cleanName,
+      action: 'CUSTOMER_PROFILE_UPDATED',
+      entityType: 'customer',
+      entityId: customerId,
+      details: { email: cleanEmail, phone: cleanPhone },
+    });
+
+    res.json({ customer: getCustomerProfilePayload(db, customerId) });
+  });
+
+  router.post('/customer/change-password', requireCustomer, (req: AuthedRequest, res) => {
+    const customerId = req.customerUser!.id;
+    const currentPassword = String(req.body?.currentPassword ?? '');
+    const newPassword = String(req.body?.newPassword ?? '');
+    if (!currentPassword || newPassword.length < 6) {
+      res.status(400).json({ error: 'Current password and new password (min 6 chars) are required.' });
+      return;
+    }
+
+    const row = db.get<{ password_hash: string; name: string }>('SELECT password_hash, name FROM customers WHERE id = ?', [
+      customerId,
+    ]);
+    if (!row || !verifyPassword(currentPassword, row.password_hash)) {
+      res.status(401).json({ error: 'Current password is incorrect.' });
+      return;
+    }
+
+    db.run('UPDATE customers SET password_hash = ? WHERE id = ?', [hashPassword(newPassword), customerId]);
+    writeAuditLog(db, {
+      actorType: 'customer',
+      actorId: customerId,
+      actorName: row.name,
+      action: 'CUSTOMER_PASSWORD_CHANGED',
+      entityType: 'customer',
+      entityId: customerId,
+      details: {},
+    });
+    res.json({ ok: true });
+  });
+
+  router.post('/customer/addresses', requireCustomer, (req: AuthedRequest, res) => {
+    const customerId = req.customerUser!.id;
+    const { label, recipientName, phone, address, postcode, isDefault } = req.body ?? {};
+    const cleanAddress = String(address ?? '').trim();
+    const cleanPostcode = String(postcode ?? '').trim() || '43000';
+    if (!cleanAddress) {
+      res.status(400).json({ error: 'Street address is required.' });
+      return;
+    }
+
+    // Migrate legacy default_address first so limit counts consistently
+    const before = getCustomerProfilePayload(db, customerId);
+    const currentCount = before?.addresses.length ?? 0;
+    if (currentCount >= MAX_SAVED_ADDRESSES) {
+      res.status(400).json({
+        error: `You can save up to ${MAX_SAVED_ADDRESSES} addresses. Please delete an existing address first.`,
+      });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const cleanLabel = String(label ?? '').trim() || `Address ${currentCount + 1}`;
+    const cleanRecipient = String(recipientName ?? '').trim() || req.customerUser!.name;
+    const cleanPhone = String(phone ?? '').trim() || req.customerUser!.phone;
+    const makeDefault = Boolean(isDefault) || currentCount === 0;
+
+    db.transaction(() => {
+      if (makeDefault) {
+        db.run('UPDATE customer_addresses SET is_default = 0 WHERE customer_id = ?', [customerId]);
+      }
+      db.run(
+        `INSERT INTO customer_addresses (customer_id, label, recipient_name, phone, address, postcode, is_default, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [customerId, cleanLabel, cleanRecipient, cleanPhone, cleanAddress, cleanPostcode, makeDefault ? 1 : 0, now],
+      );
+      syncCustomerDefaultFields(db, customerId);
+    });
+
+    res.status(201).json({ customer: getCustomerProfilePayload(db, customerId) });
+  });
+
+  router.patch('/customer/addresses/:id', requireCustomer, (req: AuthedRequest, res) => {
+    const customerId = req.customerUser!.id;
+    const addrId = Number(req.params.id);
+    const existing = db.get<{
+      id: number;
+      label: string;
+      recipient_name: string;
+      phone: string;
+      address: string;
+      postcode: string;
+      is_default: number;
+    }>('SELECT * FROM customer_addresses WHERE id = ? AND customer_id = ?', [addrId, customerId]);
+    if (!existing) {
+      res.status(404).json({ error: 'Address not found.' });
+      return;
+    }
+
+    const { label, recipientName, phone, address, postcode, isDefault } = req.body ?? {};
+    const nextAddress = address !== undefined ? String(address).trim() : existing.address;
+    if (!nextAddress) {
+      res.status(400).json({ error: 'Address cannot be empty.' });
+      return;
+    }
+
+    db.transaction(() => {
+      if (isDefault === true) {
+        db.run('UPDATE customer_addresses SET is_default = 0 WHERE customer_id = ?', [customerId]);
+      }
+      db.run(
+        `UPDATE customer_addresses
+         SET label = ?, recipient_name = ?, phone = ?, address = ?, postcode = ?, is_default = ?
+         WHERE id = ? AND customer_id = ?`,
+        [
+          label !== undefined ? String(label).trim() || existing.label : existing.label,
+          recipientName !== undefined ? String(recipientName).trim() : existing.recipient_name,
+          phone !== undefined ? String(phone).trim() : existing.phone,
+          nextAddress,
+          postcode !== undefined ? String(postcode).trim() || '43000' : existing.postcode,
+          isDefault === true ? 1 : isDefault === false ? 0 : existing.is_default,
+          addrId,
+          customerId,
+        ],
+      );
+      syncCustomerDefaultFields(db, customerId);
+    });
+
+    res.json({ customer: getCustomerProfilePayload(db, customerId) });
+  });
+
+  router.delete('/customer/addresses/:id', requireCustomer, (req: AuthedRequest, res) => {
+    const customerId = req.customerUser!.id;
+    const addrId = Number(req.params.id);
+    const existing = db.get<{ id: number; is_default: number }>(
+      'SELECT id, is_default FROM customer_addresses WHERE id = ? AND customer_id = ?',
+      [addrId, customerId],
+    );
+    if (!existing) {
+      res.status(404).json({ error: 'Address not found.' });
+      return;
+    }
+
+    db.transaction(() => {
+      db.run('DELETE FROM customer_addresses WHERE id = ? AND customer_id = ?', [addrId, customerId]);
+      if (existing.is_default === 1) {
+        const firstLeft = db.get<{ id: number }>(
+          'SELECT id FROM customer_addresses WHERE customer_id = ? ORDER BY id ASC LIMIT 1',
+          [customerId],
+        );
+        if (firstLeft) {
+          db.run('UPDATE customer_addresses SET is_default = 1 WHERE id = ?', [firstLeft.id]);
+        }
+      }
+      syncCustomerDefaultFields(db, customerId);
+    });
+
+    res.json({ customer: getCustomerProfilePayload(db, customerId) });
   });
 
   router.get('/customer/orders', requireCustomer, (req: AuthedRequest, res) => {

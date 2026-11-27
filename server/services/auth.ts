@@ -36,6 +36,14 @@ export function verifyHmac(secret: string, data: string, signature: string): boo
   return crypto.timingSafeEqual(a, b);
 }
 
+export function hashResetCode(email: string, code: string): string {
+  return signHmac(SESSION_SECRET, `reset:${email.trim().toLowerCase()}:${code.trim()}`);
+}
+
+export function verifyResetCode(email: string, code: string, storedHash: string): boolean {
+  return verifyHmac(SESSION_SECRET, `reset:${email.trim().toLowerCase()}:${code.trim()}`, storedHash);
+}
+
 export interface SessionTokenPayload {
   sub: number;
   type: 'admin' | 'customer';
