@@ -229,7 +229,7 @@ export function seedDatabase(db: DbClient): void {
        VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         'KamKim Fresh Mart',
-        'No. 28, Jalan SL 1/2, Bandar Sungai Long, 43000 Kajang, Selangor, Malaysia',
+        '40G, Jalan SL 1/2, Bandar Sungai Long, 43000 Kajang, Selangor',
         '014-9314390',
         '014-9314390',
         'https://maps.app.goo.gl/RcdFYV2JjrTtXaC36',

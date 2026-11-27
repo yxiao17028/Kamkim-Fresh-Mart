@@ -157,7 +157,7 @@ export const CheckoutModal: React.FC<{
               <Store className="w-5 h-5 text-emerald-700 shrink-0" />
               <div>
                 <div className="font-semibold text-sm">{t.selfPickup}</div>
-                <div className="text-xs text-stone-500">Collect at Jalan SL 1/2 · Pay online or at store</div>
+                <div className="text-xs text-stone-500">Collect at 40G, Jalan SL 1/2 · Pay online or at store</div>
               </div>
             </button>
           </div>

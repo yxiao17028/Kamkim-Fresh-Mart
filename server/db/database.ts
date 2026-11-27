@@ -136,6 +136,10 @@ export async function createDbClient(dbPath?: string): Promise<DbClient> {
       "ALTER TABLE store_settings ADD COLUMN store_facebook_url TEXT NOT NULL DEFAULT 'https://www.facebook.com/profile.php?id=100075855163757';",
     );
   }
+  client.run(
+    "UPDATE store_settings SET store_address = ? WHERE id = 1 AND store_address LIKE '%No. 28%'",
+    ['40G, Jalan SL 1/2, Bandar Sungai Long, 43000 Kajang, Selangor'],
+  );
 
   return client;
 }

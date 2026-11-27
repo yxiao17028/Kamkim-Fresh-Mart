@@ -452,16 +452,23 @@ export const StorefrontApp: React.FC = () => {
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
               <div
-                className="min-w-0 cursor-pointer"
+                className="flex items-center gap-2 min-w-0 cursor-pointer"
                 onClick={() => {
                   setActiveTab('shop');
                   setMobileMenuOpen(false);
                 }}
               >
-                <div className="font-extrabold text-base tracking-tight text-[#075E40] leading-none truncate">
-                  KamKim Fresh Mart
+                <img
+                  src="/images/logo.png"
+                  alt="KamKim Fresh Mart Logo"
+                  className="h-9 w-auto object-contain shrink-0"
+                />
+                <div className="min-w-0">
+                  <div className="font-extrabold text-base tracking-tight text-[#075E40] leading-none truncate">
+                    KamKim Fresh Mart
+                  </div>
+                  <div className="text-[11px] text-stone-500 mt-0.5 truncate">{t.brandTagline}</div>
                 </div>
-                <div className="text-[11px] text-stone-500 mt-0.5 truncate">{t.brandTagline}</div>
               </div>
             </div>
 
@@ -584,9 +591,11 @@ export const StorefrontApp: React.FC = () => {
         {/* Tablet & Desktop Header (md+) */}
         <div className="hidden md:flex max-w-7xl mx-auto px-4 py-3 flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('shop')}>
-            <div className="w-10 h-10 rounded-xl bg-[#075E40] text-white flex items-center justify-center font-extrabold text-base shadow-sm">
-              KK
-            </div>
+            <img
+              src="/images/logo.png"
+              alt="KamKim Fresh Mart Logo"
+              className="h-11 w-auto object-contain shrink-0"
+            />
             <div>
               <div className="font-extrabold text-base lg:text-lg tracking-tight text-stone-900 leading-none">
                 KamKim Fresh Mart
