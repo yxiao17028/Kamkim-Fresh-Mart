@@ -109,7 +109,7 @@ export function rateLimitAuth(maxAttempts = 20, windowMs = 60_000) {
     const now = Date.now();
     const recent = (loginAttempts.get(key) || []).filter((ts) => now - ts < windowMs);
     if (recent.length >= maxAttempts) {
-      res.status(429).json({ error: 'Too many login attempts. Please wait a minute and try again.' });
+      res.status(429).json({ error: 'Too many attempts. Please wait a minute and try again.' });
       return;
     }
     recent.push(now);

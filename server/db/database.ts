@@ -7,10 +7,16 @@ export class DbClient {
   private db: SqlJsDatabase;
   private filePath: string | null;
   private txDepth = 0;
+  private onPersist?: (bytes: Uint8Array) => void;
 
-  constructor(db: SqlJsDatabase, filePath: string | null) {
+  constructor(db: SqlJsDatabase, filePath: string | null, onPersist?: (bytes: Uint8Array) => void) {
     this.db = db;
     this.filePath = filePath;
+    this.onPersist = onPersist;
+  }
+
+  exportBytes(): Uint8Array {
+    return this.db.export();
   }
 
   persist(): void {
@@ -23,6 +29,9 @@ export class DbClient {
     const tmpPath = `${this.filePath}.tmp`;
     fs.writeFileSync(tmpPath, Buffer.from(data));
     fs.renameSync(tmpPath, this.filePath);
+    if (this.onPersist) {
+      this.onPersist(data);
+    }
   }
 
   exec(sql: string): void {
@@ -107,7 +116,10 @@ export class DbClient {
   }
 }
 
-export async function createDbClient(dbPath?: string): Promise<DbClient> {
+export async function createDbClient(
+  dbPath?: string,
+  options?: { onPersist?: (bytes: Uint8Array) => void },
+): Promise<DbClient> {
   const SQL = await initSqlJs();
   const isMemory = !dbPath || dbPath === ':memory:';
   let db: SqlJsDatabase;
@@ -119,7 +131,7 @@ export async function createDbClient(dbPath?: string): Promise<DbClient> {
     db = new SQL.Database();
   }
 
-  const client = new DbClient(db, isMemory ? null : dbPath);
+  const client = new DbClient(db, isMemory ? null : dbPath, options?.onPersist);
   client.exec('PRAGMA foreign_keys = ON;');
   client.exec(SCHEMA_SQL);
 

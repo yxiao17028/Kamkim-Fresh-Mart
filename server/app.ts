@@ -4,6 +4,7 @@ import express, { Express, NextFunction, Request, Response } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { DbClient } from './db/database';
+import { isRemotePersistenceEnabled } from './db/remoteSync';
 import { seedDatabase } from './db/seed';
 import { createAdminRouter } from './routes/admin';
 import { createStorefrontRouter } from './routes/storefront';
@@ -46,7 +47,12 @@ export function createApp(db: DbClient, options?: { serveStatic?: boolean }): Ex
   app.use(attachCustomerIfPresent(db));
 
   app.get('/api/health', (_req, res) => {
-    res.json({ status: 'ok', service: 'KamKim Fresh Mart Platform', timestamp: new Date().toISOString() });
+    res.json({
+      status: 'ok',
+      service: 'KamKim Fresh Mart Platform',
+      persistence: isRemotePersistenceEnabled() ? 'postgres_snapshot' : 'local_sqlite',
+      timestamp: new Date().toISOString(),
+    });
   });
 
   app.use('/api', createStorefrontRouter(db));

@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Eye,
+  EyeOff,
   Globe,
   Home,
   LayoutGrid,
@@ -184,6 +186,8 @@ export const StorefrontApp: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
   const [forgotInfo, setForgotInfo] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
   const [authError, setAuthError] = useState('');
 
   const [trackLookup, setTrackLookup] = useState({ orderCode: '', token: '' });
@@ -316,34 +320,49 @@ export const StorefrontApp: React.FC = () => {
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (authLoading) return;
     setAuthError('');
+    const cleanEmail = authForm.email.trim().toLowerCase();
+    if (!cleanEmail || !authForm.password) {
+      setAuthError('Email and password are required.');
+      return;
+    }
+    if (authMode === 'register' && authForm.password.length < 6) {
+      setAuthError('Password must be at least 6 characters.');
+      return;
+    }
+    setAuthLoading(true);
     try {
       if (authMode === 'login') {
         const res = await apiFetch<{ customer: CustomerUser }>('/api/auth/login', {
           method: 'POST',
-          body: JSON.stringify({ email: authForm.email, password: authForm.password }),
+          body: JSON.stringify({ email: cleanEmail, password: authForm.password }),
         });
         setCustomer(res.customer);
-      } else {
+      } else if (authMode === 'register') {
         const res = await apiFetch<{ customer: CustomerUser }>('/api/auth/register', {
           method: 'POST',
           body: JSON.stringify({
-            email: authForm.email,
+            email: cleanEmail,
             password: authForm.password,
-            name: authForm.name,
-            phone: authForm.phone,
-            defaultAddress: authForm.address,
-            defaultPostcode: authForm.postcode,
+            name: authForm.name.trim(),
+            phone: authForm.phone.trim(),
+            defaultAddress: authForm.address.trim(),
+            defaultPostcode: authForm.postcode.trim(),
             preferredLang: lang,
           }),
         });
         setCustomer(res.customer);
       }
       setAuthModalOpen(false);
+      setAuthForm((prev) => ({ ...prev, email: cleanEmail, password: '' }));
+      setShowAuthPassword(false);
       const ordRes = await apiFetch<{ orders: typeof customerOrders }>('/api/customer/orders');
       setCustomerOrders(ordRes.orders);
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'Authentication failed.');
+    } finally {
+      setAuthLoading(false);
     }
   };
 
@@ -1511,6 +1530,7 @@ export const StorefrontApp: React.FC = () => {
                   <>
                     <input
                       required
+                      autoComplete="name"
                       value={authForm.name}
                       onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
                       placeholder="Full Name"
@@ -1518,6 +1538,7 @@ export const StorefrontApp: React.FC = () => {
                     />
                     <input
                       required
+                      autoComplete="tel"
                       value={authForm.phone}
                       onChange={(e) => setAuthForm({ ...authForm, phone: e.target.value })}
                       placeholder="Phone Number (+60...)"
@@ -1528,28 +1549,43 @@ export const StorefrontApp: React.FC = () => {
                 <input
                   required
                   type="email"
+                  autoComplete="email"
                   value={authForm.email}
                   onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
-                  placeholder="Email address"
+                  placeholder="Email / Gmail address"
                   className="w-full px-3 py-2 rounded-xl border border-stone-300 text-sm"
                 />
-                <input
-                  required
-                  type="password"
-                  value={authForm.password}
-                  onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
-                  placeholder="Password"
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 text-sm"
-                />
+                <div className="relative">
+                  <input
+                    required
+                    type={showAuthPassword ? 'text' : 'password'}
+                    minLength={authMode === 'register' ? 6 : undefined}
+                    autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                    value={authForm.password}
+                    onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+                    placeholder={authMode === 'register' ? 'Password (min 6 chars)' : 'Password'}
+                    className="w-full pl-3 pr-10 py-2 rounded-xl border border-stone-300 text-sm"
+                  />
+                  <button
+                    type="button"
+                    aria-label={showAuthPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowAuthPassword((v) => !v)}
+                    className="absolute right-2.5 top-2 text-stone-400 hover:text-stone-700 p-0.5"
+                  >
+                    {showAuthPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
                 {authMode === 'register' && (
                   <div className="grid grid-cols-3 gap-2">
                     <input
+                      autoComplete="street-address"
                       value={authForm.address}
                       onChange={(e) => setAuthForm({ ...authForm, address: e.target.value })}
                       placeholder="Default Address"
                       className="col-span-2 px-3 py-2 rounded-xl border border-stone-300 text-sm"
                     />
                     <input
+                      autoComplete="postal-code"
                       value={authForm.postcode}
                       onChange={(e) => setAuthForm({ ...authForm, postcode: e.target.value })}
                       placeholder="Postcode"
@@ -1558,8 +1594,18 @@ export const StorefrontApp: React.FC = () => {
                   </div>
                 )}
                 {authError && <div className="text-xs text-red-600">{authError}</div>}
-                <button type="submit" className="w-full py-2.5 rounded-xl bg-[#075E40] text-white font-bold text-sm">
-                  {authMode === 'login' ? t.login : t.register}
+                <button
+                  type="submit"
+                  disabled={authLoading}
+                  className="w-full py-2.5 rounded-xl bg-[#075E40] text-white font-bold text-sm disabled:opacity-50"
+                >
+                  {authLoading
+                    ? authMode === 'login'
+                      ? 'Signing In...'
+                      : 'Creating Account...'
+                    : authMode === 'login'
+                      ? t.login
+                      : t.register}
                 </button>
                 {authMode === 'login' && (
                   <div className="text-center">

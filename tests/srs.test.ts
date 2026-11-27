@@ -648,4 +648,40 @@ describe('KamKim Fresh Mart SRS v1.3 End-to-End Acceptance Tests', () => {
       .send({ email: 'customer@example.com', password: 'newpassword99' });
     expect(newLogin.status).toBe(200);
   });
+
+  it('Customer Register/Login Validation: blocks case/whitespace duplicate registrations and allows case-insensitive cross-device login', async () => {
+    const badEmail = await request(app).post('/api/auth/register').send({
+      name: 'Invalid Email User',
+      email: 'not-an-email',
+      phone: '+6012-1112222',
+      password: 'password123',
+    });
+    expect(badEmail.status).toBe(400);
+
+    const regRes = await request(app).post('/api/auth/register').send({
+      name: 'Cross Device User',
+      email: ' CrossDevice@Gmail.com ',
+      phone: '+6012-1112222',
+      password: 'password123',
+    });
+    expect(regRes.status).toBe(201);
+    expect(regRes.body.customer.email).toBe('crossdevice@gmail.com');
+
+    // Duplicate registration with different casing/whitespace must be blocked with 409
+    const dupRes = await request(app).post('/api/auth/register').send({
+      name: 'Cross Device User 2',
+      email: 'CROSSDEVICE@GMAIL.COM',
+      phone: '+6012-9998888',
+      password: 'otherpassword',
+    });
+    expect(dupRes.status).toBe(409);
+
+    // Login from another device with different casing/whitespace succeeds
+    const loginRes = await request(app).post('/api/auth/login').send({
+      email: ' crossdevice@gmail.com ',
+      password: 'password123',
+    });
+    expect(loginRes.status).toBe(200);
+    expect(loginRes.body.customer.email).toBe('crossdevice@gmail.com');
+  });
 });

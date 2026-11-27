@@ -273,14 +273,22 @@ export function createStorefrontRouter(db: DbClient): Router {
   });
 
   // Customer auth
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   router.post('/auth/register', rateLimitAuth(15, 60_000), (req, res) => {
     const { email, name, phone, password, defaultAddress, defaultPostcode, preferredLang } = req.body ?? {};
-    if (!email || !name || !phone || !password || String(password).length < 6) {
-      res.status(400).json({ error: 'Name, email, phone, and password (min 6 chars) are required.' });
+    const cleanEmail = String(email ?? '')
+      .trim()
+      .toLowerCase();
+    const cleanName = String(name ?? '').trim();
+    const cleanPhone = String(phone ?? '').trim();
+    const rawPassword = String(password ?? '');
+
+    if (!EMAIL_REGEX.test(cleanEmail) || !cleanName || !cleanPhone || rawPassword.length < 6) {
+      res.status(400).json({ error: 'Valid email, full name, phone number, and password (min 6 chars) are required.' });
       return;
     }
-    const cleanEmail = String(email).trim().toLowerCase();
-    const existing = db.get<{ id: number }>('SELECT id FROM customers WHERE email = ?', [cleanEmail]);
+    const existing = db.get<{ id: number }>('SELECT id FROM customers WHERE LOWER(TRIM(email)) = ?', [cleanEmail]);
     if (existing) {
       res.status(409).json({ error: 'An account with this email already exists.' });
       return;
@@ -295,13 +303,13 @@ export function createStorefrontRouter(db: DbClient): Router {
       const custRes = db.run(
         `INSERT INTO customers (email, name, phone, password_hash, default_address, default_postcode, preferred_lang, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [cleanEmail, String(name).trim(), String(phone).trim(), hashPassword(String(password)), cleanAddr, cleanPost, cleanLang, now],
+        [cleanEmail, cleanName, cleanPhone, hashPassword(rawPassword), cleanAddr, cleanPost, cleanLang, now],
       );
       if (cleanAddr) {
         db.run(
           `INSERT INTO customer_addresses (customer_id, label, recipient_name, phone, address, postcode, is_default, created_at)
            VALUES (?, 'Home', ?, ?, ?, ?, 1, ?)`,
-          [custRes.lastInsertRowid, String(name).trim(), String(phone).trim(), cleanAddr, cleanPost, now],
+          [custRes.lastInsertRowid, cleanName, cleanPhone, cleanAddr, cleanPost, now],
         );
       }
       return custRes;
@@ -321,16 +329,20 @@ export function createStorefrontRouter(db: DbClient): Router {
 
   router.post('/auth/login', rateLimitAuth(20, 60_000), (req, res) => {
     const { email, password } = req.body ?? {};
-    if (!email || !password) {
+    const cleanEmail = String(email ?? '')
+      .trim()
+      .toLowerCase();
+    const rawPassword = String(password ?? '');
+    if (!cleanEmail || !rawPassword) {
       res.status(400).json({ error: 'Email and password are required.' });
       return;
     }
     const user = db.get<{
       id: number;
       password_hash: string;
-    }>('SELECT id, password_hash FROM customers WHERE email = ?', [String(email).trim().toLowerCase()]);
+    }>('SELECT id, password_hash FROM customers WHERE LOWER(TRIM(email)) = ?', [cleanEmail]);
 
-    if (!user || !verifyPassword(String(password), user.password_hash)) {
+    if (!user || !verifyPassword(rawPassword, user.password_hash)) {
       res.status(401).json({ error: 'Invalid email or password.' });
       return;
     }
@@ -370,7 +382,7 @@ export function createStorefrontRouter(db: DbClient): Router {
     }
 
     const user = db.get<{ id: number; email: string; name: string; preferred_lang: string }>(
-      'SELECT id, email, name, preferred_lang FROM customers WHERE email = ?',
+      'SELECT id, email, name, preferred_lang FROM customers WHERE LOWER(TRIM(email)) = ?',
       [cleanEmail],
     );
 
@@ -455,7 +467,7 @@ export function createStorefrontRouter(db: DbClient): Router {
     }>(
       `SELECT id, customer_id, email, code_hash, expires_at, attempts
        FROM password_reset_codes
-       WHERE email = ? AND used_at IS NULL
+       WHERE LOWER(TRIM(email)) = ? AND used_at IS NULL
        ORDER BY id DESC LIMIT 1`,
       [cleanEmail],
     );
@@ -814,12 +826,15 @@ export function createStorefrontRouter(db: DbClient): Router {
       .toLowerCase();
     const cleanPhone = String(phone ?? '').trim();
 
-    if (!cleanName || !cleanEmail || !cleanEmail.includes('@') || !cleanPhone) {
+    if (!cleanName || !EMAIL_REGEX.test(cleanEmail) || !cleanPhone) {
       res.status(400).json({ error: 'Name, valid email/Gmail, and phone number are required.' });
       return;
     }
 
-    const dup = db.get<{ id: number }>('SELECT id FROM customers WHERE email = ? AND id != ?', [cleanEmail, customerId]);
+    const dup = db.get<{ id: number }>('SELECT id FROM customers WHERE LOWER(TRIM(email)) = ? AND id != ?', [
+      cleanEmail,
+      customerId,
+    ]);
     if (dup) {
       res.status(409).json({ error: 'Another account already uses that email address.' });
       return;
